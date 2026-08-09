@@ -115,6 +115,13 @@ td:last-child{font-weight:600;color:#f1f4f7;overflow-wrap:anywhere}
   box-shadow:none!important;font-size:10px;font-weight:700;padding:2px 4px!important
 }
 .tp-label:before{display:none}
+.tp-marker{
+  width:14px;height:14px;border-radius:50%;
+  background:#ffd34d;border:2px solid #fff;
+  box-shadow:0 0 0 1px #6b5a18,0 0 7px rgba(255,211,77,.85);
+}
+.tp-marker.tp-selected{background:#fff27a;box-shadow:0 0 0 2px #fff,0 0 13px #ffd34d}
+.energy-marker-label{font-size:10px;font-weight:700;color:#fff;background:rgba(20,24,28,.92);border:1px solid #58636e;padding:2px 4px;border-radius:3px;white-space:nowrap}
 
 /* Мобильная адаптация */
 @media(max-width:900px){
@@ -215,6 +222,7 @@ map.getPane("energy-line04-pane").style.zIndex=405;
 map.getPane("energy-nodes-pane").style.zIndex=620;
 map.getPane("energy-tp-pane").style.zIndex=650;
 map.getPane("energy-label-pane").style.zIndex=700;
+map.getPane("markerPane").style.zIndex=1000;
 
 /* ---------- Базовые карты ---------- */
 const osm=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
@@ -261,8 +269,11 @@ function is04(o){
 }
 
 function isTP(o){
-  return o.type==="tp" ||
-         /(?:^|\s)(?:ктп|ктпн|тп|ктпб)(?:\s|-)/i.test(String(o.name||""));
+  const name=String(o.name||"");
+  const folder=String(o.folder||"");
+  return String(o.type||"").toLowerCase()==="tp" ||
+         /трансформаторные пункты/i.test(folder) ||
+         /(?:^|\s)(?:ктп|ктпн|тп|ктпб)(?:\s|-)/i.test(name);
 }
 
 function isSubstation(o){
@@ -363,7 +374,9 @@ function buildIndexes(){
         if(candidate.id===o.id)continue;
         if(candidate.type==="feeder" || is10Line(candidate)){
           const cn=norm(candidate.name);
-          if(cn===target || cn.includes(target) || target.includes(cn)){
+          const a=cn.replace(/^ф\.?\s*/i,"");
+          const b=target.replace(/^ф\.?\s*/i,"");
+          if(cn===target || cn.includes(target) || target.includes(cn) || a===b || a.includes(b) || b.includes(a)){
             parent=candidate;
             break;
           }
@@ -430,8 +443,48 @@ function createLayer(o){
   const g=o.geometry;
   const s=styleFor(o);
 
+  /*
+    ТП рисуем НЕ через Canvas CircleMarker.
+    Используем обычный DOM-marker с DivIcon и огромным zIndexOffset.
+    Это гарантирует, что ТП физически видны поверх линий на GitHub Pages.
+  */
+  if(g.type==="Point" && isTP(o)){
+    const marker=L.marker([g.coordinates[1],g.coordinates[0]],{
+      pane:"markerPane",
+      zIndexOffset:10000,
+      icon:L.divIcon({
+        className:"",
+        html:'<div class="tp-marker"></div>',
+        iconSize:[14,14],
+        iconAnchor:[7,7],
+        tooltipAnchor:[0,-8]
+      })
+    });
+
+    marker.on("mouseover",()=>{
+      const el=marker.getElement()?.querySelector(".tp-marker");
+      if(el)el.classList.add("tp-selected");
+      marker.openTooltip();
+    });
+    marker.on("mouseout",()=>{
+      const el=marker.getElement()?.querySelector(".tp-marker");
+      if(el)el.classList.remove("tp-selected");
+      marker.closeTooltip();
+    });
+    marker.on("click",e=>{
+      L.DomEvent.stopPropagation(e);
+      selectObject(o.id);
+    });
+    marker.bindTooltip(o.name,{
+      direction:"top",
+      className:"tp-label",
+      offset:[0,-7]
+    });
+    return marker;
+  }
+
   if(g.type==="Point"){
-    const pane=isTP(o)?"energy-tp-pane":"energy-nodes-pane";
+    const pane=isSubstation(o)||isRP(o)?"energy-nodes-pane":"energy-nodes-pane";
     const marker=L.circleMarker(
       [g.coordinates[1],g.coordinates[0]],
       {
@@ -452,37 +505,13 @@ function createLayer(o){
         fillOpacity:1,
         opacity:1
       });
-      if(isTP(o)){
-        marker.bindTooltip(o.name,{
-          permanent:false,
-          direction:"top",
-          className:"tp-label",
-          offset:[0,-6]
-        }).openTooltip();
-      }
     });
-
-    marker.on("mouseout",()=>{
-      marker.closeTooltip();
-      refreshObjectStyle(o.id);
-    });
-
+    marker.on("mouseout",()=>refreshObjectStyle(o.id));
     marker.on("click",e=>{
       L.DomEvent.stopPropagation(e);
       selectObject(o.id);
     });
-
-    // ТП всегда имеют понятную подпись при наведении.
-    if(isTP(o)){
-      marker.bindTooltip(o.name,{
-        direction:"top",
-        className:"tp-label",
-        offset:[0,-6]
-      });
-    }else{
-      marker.bindTooltip(o.name,{sticky:true,opacity:.95});
-    }
-
+    marker.bindTooltip(o.name,{sticky:true,opacity:.95});
     return marker;
   }
 
@@ -503,18 +532,14 @@ function createLayer(o){
     weight:(s.weight||3)+3,
     opacity:1
   }));
-
   line.on("mouseout",()=>refreshObjectStyle(o.id));
-
   line.on("click",e=>{
     L.DomEvent.stopPropagation(e);
     selectObject(o.id);
   });
-
   line.bindTooltip(o.name,{sticky:true,opacity:.95});
   return line;
 }
-
 /* ---------- Иерархия ---------- */
 function getParentId(o){
   if(o.parent_id && objects.has(o.parent_id))return o.parent_id;

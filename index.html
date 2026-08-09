@@ -4,10 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Энергоузел Шиели — диспетчерская ГИС</title>
-
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
->
-
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{
   --bg:#171b20;--panel:#20262d;--panel2:#282f37;--border:#3b444e;
@@ -18,37 +15,22 @@
 html,body,#map{height:100%;width:100%;margin:0}
 body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
 #map{position:absolute;inset:0}
-.leaflet-control-layers,.leaflet-bar a{
-  background:#20262d!important;color:#e9edf1!important;border-color:#3b444e!important
-}
+.leaflet-control-layers,.leaflet-bar a{background:#20262d!important;color:#e9edf1!important;border-color:#3b444e!important}
 .leaflet-control-layers-expanded{padding:8px 10px}
 .leaflet-control-layers label{margin:5px 0}
 .leaflet-control-attribution{background:rgba(20,24,28,.82)!important;color:#aeb8c2}
 .leaflet-control-attribution a{color:#7fc7ff}
-
-.topbar{
-  position:absolute;z-index:1000;left:14px;top:14px;right:430px;height:52px;
-  display:flex;align-items:center;gap:10px;padding:8px 12px;
-  background:rgba(25,30,35,.94);border:1px solid var(--border);border-radius:7px;
-  box-shadow:0 4px 18px rgba(0,0,0,.28);pointer-events:none
-}
+.topbar{position:absolute;z-index:1000;left:14px;top:14px;right:430px;height:52px;display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(25,30,35,.94);border:1px solid var(--border);border-radius:7px;box-shadow:0 4px 18px rgba(0,0,0,.28);pointer-events:none}
 .brand{font-weight:700;letter-spacing:.5px;white-space:nowrap}
 .status{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;margin-left:auto}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
-.search{
-  position:absolute;z-index:1001;top:76px;left:14px;width:330px;
-  background:rgba(25,30,35,.95);border:1px solid var(--border);border-radius:7px;
-  padding:8px;box-shadow:0 4px 18px rgba(0,0,0,.25)
-}
+.dot.err{background:var(--danger);box-shadow:0 0 8px var(--danger)}
+.search{position:absolute;z-index:1001;top:76px;left:14px;width:330px;background:rgba(25,30,35,.95);border:1px solid var(--border);border-radius:7px;padding:8px;box-shadow:0 4px 18px rgba(0,0,0,.25)}
 .search input{width:100%;background:#15191e;border:1px solid var(--border);color:#fff;padding:9px 10px;border-radius:5px;outline:none}
 .results{max-height:220px;overflow:auto;margin-top:6px}
 .result{padding:7px 8px;border-radius:4px;cursor:pointer;font-size:12px}
 .result:hover{background:#303942}
-.sidebar{
-  position:absolute;z-index:1100;top:0;right:0;width:410px;height:100%;
-  background:rgba(27,32,38,.97);border-left:1px solid var(--border);
-  box-shadow:-6px 0 22px rgba(0,0,0,.3);display:flex;flex-direction:column
-}
+.sidebar{position:absolute;z-index:1100;top:0;right:0;width:410px;height:100%;background:rgba(27,32,38,.97);border-left:1px solid var(--border);box-shadow:-6px 0 22px rgba(0,0,0,.3);display:flex;flex-direction:column}
 .sidebar-head{padding:17px 18px 13px;border-bottom:1px solid var(--border)}
 .kicker{font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--accent);font-weight:700}
 .title{font-size:18px;font-weight:700;margin-top:4px;line-height:1.25}
@@ -59,48 +41,30 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--tex
 table{width:100%;border-collapse:collapse;font-size:12px}
 td{padding:7px 6px;border-bottom:1px solid #333b43;vertical-align:top}
 td:first-child{color:var(--muted);width:44%}
-td:last-child{font-weight:600;color:#f1f4f7}
+td:last-child{font-weight:600;color:#f1f4f7;word-break:break-word}
 .link-list{display:flex;flex-direction:column;gap:7px}
-.link-btn{
-  display:flex;align-items:center;gap:8px;text-decoration:none;color:#dfeeff;
-  background:#29333c;border:1px solid #3d4a55;border-radius:5px;padding:8px 10px;font-size:12px
-}
+.link-btn{display:flex;align-items:center;gap:8px;text-decoration:none;color:#dfeeff;background:#29333c;border:1px solid #3d4a55;border-radius:5px;padding:8px 10px;font-size:12px}
 .link-btn:hover{background:#33414c;border-color:#5b6c79}
 .close{float:right;background:none;border:0;color:#9da8b2;font-size:20px;cursor:pointer}
-.legend{
-  position:absolute;z-index:1000;bottom:18px;left:14px;background:rgba(25,30,35,.94);
-  border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:11px;
-  box-shadow:0 4px 16px rgba(0,0,0,.25)
-}
+.legend{position:absolute;z-index:1000;bottom:18px;left:14px;background:rgba(25,30,35,.94);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:11px;box-shadow:0 4px 16px rgba(0,0,0,.25)}
 .legend-row{display:flex;align-items:center;gap:8px;margin:4px 0}
 .sw{width:28px;height:4px;border-radius:3px}
 .node{width:12px;height:12px;border-radius:50%;border:2px solid #fff}
-.focus-note{
-  position:absolute;z-index:1000;top:76px;right:425px;background:rgba(25,30,35,.94);
-  border:1px solid var(--border);padding:8px 10px;border-radius:5px;color:#cbd3db;font-size:11px;
-  display:none
-}
-@media(max-width:850px){
-  .sidebar{width:340px}.topbar{right:350px}.focus-note{right:355px}
-}
+.focus-note{position:absolute;z-index:1000;top:76px;right:425px;background:rgba(25,30,35,.94);border:1px solid var(--border);padding:8px 10px;border-radius:5px;color:#cbd3db;font-size:11px;display:none}
+@media(max-width:850px){.sidebar{width:340px}.topbar{right:350px}.focus-note{right:355px}}
 </style>
 </head>
-
 <body>
 <div id="map"></div>
-
 <div class="topbar">
   <div class="brand">ЭНЕРГОУЗЕЛ ШИЕЛИ / ДИСПЕТЧЕРСКАЯ ГИС</div>
-  <div class="status"><span class="dot"></span> GeoJSON: data_synchronized.geojson</div>
+  <div class="status"><span class="dot" id="statusDot"></span> <span id="statusText">GeoJSON: data_synchronized.geojson</span></div>
 </div>
-
 <div class="search">
   <input id="searchInput" placeholder="Поиск ПС, РП, фидера, ТП или линии...">
   <div id="results" class="results"></div>
 </div>
-
 <div id="focusNote" class="focus-note"></div>
-
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-head">
     <button class="close" id="closePanel" title="Закрыть">×</button>
@@ -119,7 +83,6 @@ td:last-child{font-weight:600;color:#f1f4f7}
     </div>
   </div>
 </aside>
-
 <div class="legend">
   <div style="font-weight:700;margin-bottom:6px">КЛАСС НАПРЯЖЕНИЯ</div>
   <div class="legend-row"><span class="sw" style="background:#ff3b30;height:5px"></span> 110 кВ</div>
@@ -128,85 +91,49 @@ td:last-child{font-weight:600;color:#f1f4f7}
   <div class="legend-row"><span class="sw" style="background:#b57cff;height:3px"></span> 0,4 кВ</div>
   <div class="legend-row"><span class="node" style="background:#e34b4b"></span> ПС / РП</div>
   <div class="legend-row"><span class="node" style="background:#ffd34d"></span> ТП / КТП</div>
+  <div class="legend-row"><span class="node" style="background:#48d597"></span> СЭС / прочее</div>
 </div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
- integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
-/* ============================================================
-   ДЕМО-ДАННЫЕ
-   Иерархия: PS/RP -> feeder -> 10 kV line -> TP -> 0.4 kV line
-   Связь строится исключительно через id / parent_id / fed_from.
-   При замене демо-данных достаточно сохранить эту схему.
-   ============================================================ */
 let DATA = [];
-const DATA_URL = "data_synchronized.geojson";
+const DATA_URL = "./data_synchronized.geojson";
 
 async function loadGeoJSON() {
   const response = await fetch(DATA_URL, {cache:"no-store"});
   if (!response.ok) throw new Error(`Не удалось загрузить ${DATA_URL}: HTTP ${response.status}`);
   const geojson = await response.json();
 
-  DATA = geojson.features.map((feature, i) => {
+  DATA = (geojson.features || []).map((feature, i) => {
     const p = feature.properties || {};
     return {
       ...p,
       id: p.id || `geo_${String(i).padStart(4,"0")}`,
       name: p.name || `Объект ${i+1}`,
-      type: p.object_type || feature.geometry?.type?.toLowerCase() || "point",
-      geometry: feature.geometry,
-      coords: feature.geometry?.type === "Point"
-        ? [feature.geometry.coordinates[1], feature.geometry.coordinates[0]]
-        : null,
-      path: feature.geometry?.type === "LineString"
-        ? feature.geometry.coordinates.map(c => [c[1], c[0]])
-        : null
+      type: p.object_type || (feature.geometry && feature.geometry.type ? feature.geometry.type.toLowerCase() : "point"),
+      geometry: feature.geometry
     };
   });
 
   DATA.forEach(o => {
     objects.set(o.id, o);
-    if (o.parent_id) addChild(o.parent_id, o.id);
+  });
+  DATA.forEach(o => {
+    if (o.parent_id && objects.has(o.parent_id)) addChild(o.parent_id, o.id);
   });
 
   renderGeoJSON();
+
+  document.getElementById("statusText").textContent = `GeoJSON: data_synchronized.geojson (${DATA.length} объектов)`;
 }
 
-/* ---------- Карта и базовые слои ---------- */
 const map = L.map("map",{zoomControl:true,preferCanvas:true}).setView([44.18,66.73],14);
-
-const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
-  maxZoom:20,attribution:"© OpenStreetMap contributors"
-});
-const carto = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{
-  maxZoom:20,attribution:"© OpenStreetMap © CARTO"
-});
-const esri = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{
-  maxZoom:20,attribution:"Tiles © Esri"
-});
-const labels = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",{
-  maxZoom:20,attribution:"© CARTO"
-});
+const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:20,attribution:"© OpenStreetMap contributors"});
+const carto = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{maxZoom:20,attribution:"© OpenStreetMap © CARTO"});
+const esri = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:20,attribution:"Tiles © Esri"});
+const labels = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",{maxZoom:20,attribution:"© CARTO"});
 
 osm.addTo(map);
-L.control.layers({
-  "Стандартная схема":osm,
-  "Спутник":esri,
-  "Гибрид: спутник + подписи":L.layerGroup([esri,labels]),
-  "Светлая схема":carto
-},null,{collapsed:false,position:"topright"}).addTo(map);
-
-/* ---------- Стили ---------- */
-const styles = {
-  substation:{color:"#e34b4b",fill:"#e34b4b",radius:10,weight:3},
-  rp:{color:"#e34b4b",fill:"#e34b4b",radius:9,weight:3},
-  feeder:{color:"#36a8ff",weight:5,opacity:.95},
-  line10:{color:"#36a8ff",weight:5,opacity:.95},
-  line04:{color:"#b57cff",weight:3,opacity:.95,dashArray:"6 5"},
-  input04:{color:"#b57cff",weight:2,opacity:.95,dashArray:"3 5"},
-  tp:{color:"#ffd34d",fill:"#ffd34d",radius:7,weight:2}
-};
+L.control.layers({"Стандартная схема":osm,"Спутник":esri,"Гибрид: спутник + подписи":L.layerGroup([esri,labels]),"Светлая схема":carto},null,{collapsed:false,position:"topright"}).addTo(map);
 
 const layers = new Map();
 const objects = new Map();
@@ -214,45 +141,7 @@ const children = new Map();
 let selectedId = null;
 let selectedTp04 = new Set();
 
-function addChild(parent,id){
-  if(!children.has(parent)) children.set(parent,new Set());
-  children.get(parent).add(id);
-}
-
-
-function makeMarker(o){
-  const s=styles[o.type]||styles.tp;
-  const m=L.circleMarker(o.coords,{
-    radius:s.radius,color:s.color,fillColor:s.fill,fillOpacity:1,weight:s.weight,
-    className:"energy-marker"
-  });
-  m.on("mouseover",()=>{m.setStyle({radius:(s.radius||7)+3,weight:(s.weight||2)+1})});
-  m.on("mouseout",()=>{m.setStyle({radius:s.radius,weight:s.weight})});
-  m.on("click",e=>{L.DomEvent.stopPropagation(e);selectObject(o.id)});
-  m.bindTooltip(o.name,{direction:"top",sticky:true,opacity:.95});
-  return m;
-}
-function makeLine(o){
-  const s=styles[o.type]||styles.line10;
-  const l=L.polyline(o.path,{color:s.color,weight:s.weight,opacity:s.opacity,dashArray:s.dashArray||null,lineCap:"round",lineJoin:"round"});
-  l.on("mouseover",()=>l.setStyle({weight:s.weight+3,opacity:1}));
-  l.on("mouseout",()=>refreshLineStyle(o.id));
-  l.on("click",e=>{L.DomEvent.stopPropagation(e);selectObject(o.id)});
-  l.bindTooltip(o.name,{sticky:true,opacity:.95});
-  return l;
-}
-
-function geometryCenter(o) {
-  const g = o.geometry;
-  if (!g) return null;
-  if (g.type === "Point") return [g.coordinates[1], g.coordinates[0]];
-  const pts = g.type === "LineString" ? g.coordinates :
-              g.type === "Polygon" ? g.coordinates[0] : null;
-  if (!pts || !pts.length) return null;
-  const avgLat = pts.reduce((s,c)=>s+c[1],0)/pts.length;
-  const avgLng = pts.reduce((s,c)=>s+c[0],0)/pts.length;
-  return [avgLat, avgLng];
-}
+function addChild(parent,id){if(!children.has(parent)) children.set(parent,new Set());children.get(parent).add(id);}
 
 function objectIs04(o) {
   const v = String(o.voltage || "").replace(",", ".");
@@ -260,14 +149,20 @@ function objectIs04(o) {
 }
 
 function styleForObject(o) {
-  if (o.type === "substation") return {color:"#e34b4b", fillColor:"#e34b4b", radius:10, weight:3};
-  if (o.type === "rp") return {color:"#ff7b45", fillColor:"#ff7b45", radius:9, weight:3};
-  if (o.type === "tp") return {color:"#ffd34d", fillColor:"#ffd34d", radius:7, weight:2};
-  if (objectIs04(o)) return {color:"#b57cff", weight:3, opacity:.95, dashArray:"6 5"};
-  if (o.type === "line10" || o.type === "feeder") return {color:"#36a8ff", weight:5, opacity:.95};
-  if (o.type === "line") return {color:"#36a8ff", weight:4, opacity:.9};
-  if (o.type === "power_object") return {color:"#48d597", fillColor:"#48d597", radius:6, weight:2};
-  return {color:"#aab4be", fillColor:"#aab4be", radius:5, weight:1};
+  switch (o.type) {
+    case "substation": return {color:"#e34b4b", fillColor:"#e34b4b", radius:10, weight:3};
+    case "rp": return {color:"#ff7b45", fillColor:"#ff7b45", radius:9, weight:3};
+    case "tp": return {color:"#ffd34d", fillColor:"#ffd34d", radius:7, weight:2};
+    case "power_object": return {color:"#48d597", fillColor:"#48d597", radius:8, weight:2, fillOpacity:.35};
+    case "line110": return {color:"#ff3b30", weight:6, opacity:.95};
+    case "line35": return {color:"#ff9f43", weight:5, opacity:.95};
+    case "feeder":
+    case "line10": return {color:"#36a8ff", weight:5, opacity:.95};
+    case "line04": return {color:"#b57cff", weight:3, opacity:.95, dashArray:"6 5"};
+    case "input04": return {color:"#b57cff", weight:2, opacity:.95, dashArray:"3 5"};
+    case "line": return {color:"#36a8ff", weight:4, opacity:.9};
+    default: return {color:"#aab4be", fillColor:"#aab4be", radius:5, weight:1};
+  }
 }
 
 function makeFeatureLayer(o) {
@@ -277,10 +172,7 @@ function makeFeatureLayer(o) {
 
   let layer;
   if (g.type === "Point") {
-    layer = L.circleMarker([g.coordinates[1],g.coordinates[0]], {
-      radius:s.radius || 5, color:s.color, fillColor:s.fillColor || s.color,
-      fillOpacity:1, weight:s.weight || 1
-    });
+    layer = L.circleMarker([g.coordinates[1],g.coordinates[0]], {radius:s.radius || 5, color:s.color, fillColor:s.fillColor || s.color, fillOpacity:s.fillOpacity ?? 1, weight:s.weight || 1});
     layer.on("mouseover",()=>layer.setStyle({radius:(s.radius||5)+3,weight:(s.weight||1)+1}));
     layer.on("mouseout",()=>refreshLineStyle(o.id));
   } else {
@@ -299,57 +191,36 @@ function renderGeoJSON() {
     const layer=makeFeatureLayer(o);
     if(!layer)return;
     layers.set(o.id,layer);
-
-    // 0.4 kV is hidden by default.
     if (!objectIs04(o)) layer.addTo(map);
   });
 
-  const visible = DATA.filter(o => o.geometry && !objectIs04(o));
-  if (visible.length) {
-    const group = L.featureGroup(visible.map(o=>layers.get(o.id)).filter(Boolean));
+  const allLayers = Array.from(layers.values());
+  if (allLayers.length) {
+    const group = L.featureGroup(allLayers);
     if (group.getBounds().isValid()) map.fitBounds(group.getBounds().pad(.05));
   }
   refreshAll();
 }
 
-/* ---------- Иерархия / фокус ---------- */
 function descendants(id){
   const out=new Set([id]);
-  const walk=p=>{
-    (children.get(p)||[]).forEach(ch=>{if(!out.has(ch)){out.add(ch);walk(ch)}})
-  };
+  const walk=p=>{(children.get(p)||[]).forEach(ch=>{if(!out.has(ch)){out.add(ch);walk(ch)}})};
   walk(id); return out;
 }
 function ancestorChain(id){
   const out=new Set(); let cur=objects.get(id);
-  while(cur){
-    out.add(cur.id);
-    cur=cur.parent_id?objects.get(cur.parent_id):null;
-  }
+  while(cur){out.add(cur.id);cur=cur.parent_id?objects.get(cur.parent_id):null;}
   return out;
 }
 function relatedForSelection(id){
   const o=objects.get(id), set=new Set();
   if(!o)return set;
-
-  // Only relationships explicitly present in synchronized GeoJSON are used.
-  if(o.type==="substation" || o.type==="rp"){
-    descendants(id).forEach(x=>set.add(x));
-  } else if(o.type==="feeder" || o.type==="line10" || o.type==="line"){
-    set.add(o.id);
-    descendants(o.id).forEach(x=>set.add(x));
-    ancestorChain(o.id).forEach(x=>set.add(x));
-  } else if(o.type==="tp"){
-    set.add(o.id);
-    ancestorChain(o.id).forEach(x=>set.add(x));
-    (children.get(o.id)||[]).forEach(x=>set.add(x));
-  } else {
-    set.add(o.id);
-    ancestorChain(o.id).forEach(x=>set.add(x));
-  }
+  if(o.type==="substation" || o.type==="rp"){descendants(id).forEach(x=>set.add(x));}
+  else if(o.type==="feeder" || o.type==="line10" || o.type==="line"){set.add(o.id);descendants(o.id).forEach(x=>set.add(x));ancestorChain(o.id).forEach(x=>set.add(x));}
+  else if(o.type==="tp"){set.add(o.id);ancestorChain(o.id).forEach(x=>set.add(x));(children.get(o.id)||[]).forEach(x=>set.add(x));}
+  else {set.add(o.id);ancestorChain(o.id).forEach(x=>set.add(x));}
   return set;
 }
-function is04(o){return objectIs04(o)}
 
 function refreshLineStyle(id){
   const o=objects.get(id), l=layers.get(id); if(!l)return;
@@ -362,47 +233,40 @@ function refreshLineStyle(id){
   }
   if (l.setStyle) l.setStyle({opacity:op,weight:wt,fillOpacity:op});
 }
+
 function refreshAll(){
   const rel=selectedId?relatedForSelection(selectedId):null;
   DATA.forEach(o=>{
     const l=layers.get(o.id); if(!l)return;
-
     if(objectIs04(o)){
       const visible=selectedTp04.has(o.parent_id);
       if(visible && !map.hasLayer(l)) l.addTo(map);
       if(!visible && map.hasLayer(l)) map.removeLayer(l);
     }
-
     const s=styleForObject(o);
     const active=selectedId ? rel.has(o.id) : true;
     const op=active?1:.25;
-    if(l.setStyle) l.setStyle({
-      opacity:op,
-      fillOpacity:op,
-      weight:(s.weight||2)+(active&&selectedId?1:0),
-      radius:s.radius
-    });
+    if(l.setStyle) l.setStyle({opacity:op,fillOpacity:s.fillOpacity!==undefined?(active?s.fillOpacity:s.fillOpacity*.4):op,weight:(s.weight||2)+(active&&selectedId?1:0),radius:s.radius});
   });
 }
+
 function selectObject(id){
   const o=objects.get(id); if(!o)return;
   selectedId=id;
   selectedTp04.clear();
   if(o.type==="tp") selectedTp04.add(o.id);
-
-  const rel=relatedForSelection(id);
-  // Show only the selected TP's 0.4-kV branches; all others remain hidden.
   refreshAll();
 
   const layer=layers.get(id);
   if(layer){
     const b=layer.getBounds?layer.getBounds():layer.getLatLng?L.latLngBounds([layer.getLatLng()]):null;
-    if(b)map.fitBounds(b.pad(.7),{maxZoom:16});
+    if(b && b.isValid && b.isValid()) map.fitBounds(b.pad(.7),{maxZoom:16});
   }
   showCard(o);
   document.getElementById("focusNote").style.display="block";
   document.getElementById("focusNote").textContent="ФОКУС: "+o.name;
 }
+
 function resetSelection(){
   selectedId=null;selectedTp04.clear();refreshAll();
   document.getElementById("focusNote").style.display="none";
@@ -410,25 +274,33 @@ function resetSelection(){
 }
 map.on("click",resetSelection);
 
-/* ---------- Карточка объекта ---------- */
+const TYPE_LABELS = {
+  substation:"ПОДСТАНЦИЯ",
+  rp:"РАСПРЕДЕЛИТЕЛЬНЫЙ ПУНКТ",
+  tp:"ТРАНСФОРМАТОРНЫЙ ПУНКТ",
+  power_object:"ЭНЕРГООБЪЕКТ",
+  line110:"ЛИНИЯ 110 КВ",
+  line35:"ЛИНИЯ 35 КВ",
+  feeder:"ФИДЕР 10 КВ",
+  line10:"ЛИНИЯ 10 КВ",
+  line04:"ЛИНИЯ 0,4 КВ",
+  input04:"ВВОД 0,4 КВ"
+};
+
 function showCard(o){
   document.getElementById("objectTitle").textContent=o.name;
-  document.getElementById("objectSubtitle").textContent=
-    (o.type==="substation"?"ПОДСТАНЦИЯ":o.type==="feeder"?"ФИДЕР 10 КВ":
-    o.type==="tp"?"ТРАНСФОРМАТОРНЫЙ ПУНКТ":"ЛИНИЯ 0,4 КВ");
-  const parent=o.fed_from&&objects.get(o.fed_from);
+  document.getElementById("objectSubtitle").textContent=TYPE_LABELS[o.type] || "ОБЪЕКТ";
+  const parent = o.parent_id ? objects.get(o.parent_id) : null;
   const rows=[
     ["ID",o.id],
     ["Тип объекта",o.object_type||o.type||"—"],
     ["Напряжение",o.voltage||"—"],
     ["Год ввода",o.year||"—"],
     ["Балансовая принадлежность",o.balance||"—"],
-    ["Марка провода/кабеля",o.wire||"—"],
     ["Запитано от",parent?parent.name:(o.fed_from||"—")],
-    ["Родительский объект",o.parent_id&&objects.get(o.parent_id)?objects.get(o.parent_id).name:(o.parent_id||"—")],
-    ["Установленная мощность",o.power_kva||o.power||"—"],
+    ["Установленная мощность",o.power_kva||"—"],
     ["Зав./Инв. №",o.inventory_no||"—"],
-    ["Протяженность",o.length!=null?o.length:"—"],
+    ["Протяженность",o.length!=null && o.length!=="" ?o.length:"—"],
     ["Описание",o.description||"—"]
   ];
   document.getElementById("attrs").innerHTML=rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join("");
@@ -441,6 +313,7 @@ function showCard(o){
     }).join("")
     :'<div style="color:#8f9aa5;font-size:12px">Внешние ссылки не заданы.</div>';
 }
+
 function clearCard(){
   document.getElementById("objectTitle").textContent="Объект не выбран";
   document.getElementById("objectSubtitle").textContent="Кликните объект на карте";
@@ -449,28 +322,31 @@ function clearCard(){
 }
 document.getElementById("closePanel").onclick=resetSelection;
 
-/* ---------- Поиск ---------- */
 const searchInput=document.getElementById("searchInput"), results=document.getElementById("results");
 function renderResults(q){
   q=q.trim().toLowerCase();
   if(!q){results.innerHTML="";return}
-  const arr=DATA.filter(o=>
-    [o.name,o.id,o.object_type,o.voltage,o.wire,o.fed_from,o.parent_id,o.balance,o.power_kva,o.inventory_no,o.description].join(" ").toLowerCase().includes(q)
-  ).slice(0,12);
-  results.innerHTML=arr.length?arr.map(o=>`<div class="result" data-id="${escAttr(o.id)}">${esc(o.name)} <span style="color:#7f8a95">· ${esc(o.voltage||o.object_type||"")}</span></div>`).join("")
-    :'<div style="padding:8px;color:#89939d;font-size:12px">Ничего не найдено</div>';
-  results.querySelectorAll(".result").forEach(el=>el.onclick=()=>selectObject(el.dataset.id));
+  try{
+    const arr=DATA.filter(o=>[o.name,o.id,o.object_type,o.voltage,o.fed_from,o.parent_id,o.balance,o.power_kva,o.inventory_no,o.description].join(" ").toLowerCase().includes(q)).slice(0,12);
+    results.innerHTML=arr.length?arr.map(o=>`<div class="result" data-id="${escAttr(o.id)}">${esc(o.name)} <span style="color:#7f8a95">· ${esc(o.voltage||o.object_type||"")}</span></div>`).join("")
+      :'<div style="padding:8px;color:#89939d;font-size:12px">Ничего не найдено</div>';
+    results.querySelectorAll(".result").forEach(el=>el.onclick=()=>selectObject(el.dataset.id));
+  }catch(err){
+    console.error("Ошибка поиска:", err);
+    results.innerHTML='<div style="padding:8px;color:#ff8080;font-size:12px">Ошибка поиска</div>';
+  }
 }
 searchInput.addEventListener("input",e=>renderResults(e.target.value));
 
 function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function escAttr(v){return esc(v)}
 
-/* Стартовое состояние: загружаем синхронизированный GeoJSON */
 loadGeoJSON().catch(err=>{
   console.error(err);
   document.getElementById("objectTitle").textContent="Ошибка загрузки данных";
   document.getElementById("objectSubtitle").textContent=err.message;
+  document.getElementById("statusDot").classList.add("err");
+  document.getElementById("statusText").textContent="Ошибка: "+err.message;
 });
 </script>
 </body>

@@ -1,481 +1,451 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ГИС Диспетчер Энергосистемы — Полный Интерактивный Модуль</title>
-    
-    <!-- Leaflet CSS & JS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- Turf.js для пространственного анализа и геометрии -->
-    <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ПТО Энергоучёт | Геопортал РЭС</title>
+  
+  <!-- Leaflet CSS for Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Google Fonts: JetBrains Mono & Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #0a0e14;
+      --panel-bg: rgba(16, 23, 34, 0.75);
+      --panel-border: rgba(0, 240, 255, 0.2);
+      --accent-cyan: #00f0ff;
+      --accent-glow: rgba(0, 240, 255, 0.4);
+      --accent-amber: #ffaa00;
+      --text-main: #e0e6ed;
+      --text-muted: #8a99ad;
+      --radius: 12px;
+    }
 
-    <style>
-        :root {
-            --bg-dark: #080c14;
-            --panel-bg: rgba(15, 23, 42, 0.92);
-            --panel-border: rgba(255, 255, 255, 0.12);
-            --accent-cyan: #00f2fe;
-            --accent-blue: #3b82f6;
-            --accent-green: #10b981;
-            --accent-red: #ef4444;
-            --accent-gold: #f59e0b;
-            --text-main: #f8fafc;
-            --text-sub: #94a3b8;
-        }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+    }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
-        body { background: var(--bg-dark); color: var(--text-main); overflow: hidden; height: 100vh; width: 100vw; }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+    }
 
-        #map { height: 100vh; width: 100vw; z-index: 1; background: #05080f; }
+    #app {
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
 
-        /* ==================== АНИМАЦИИ И СТИЛИ СВЕЧЕНИЯ (GLOW) ==================== */
+    /* MAP CONTAINER */
+    #map {
+      flex: 1;
+      height: 100%;
+      background: #070a0f;
+      z-index: 1;
+    }
 
-        @keyframes pulse-glow {
-            0% {
-                transform: scale(0.8);
-                opacity: 0.9;
-                box-shadow: 0 0 0 0 rgba(0, 242, 254, 0.8), 0 0 20px 8px rgba(0, 242, 254, 0.6);
-            }
-            70% {
-                transform: scale(1.4);
-                opacity: 0;
-                box-shadow: 0 0 0 25px rgba(0, 242, 254, 0), 0 0 35px 15px rgba(0, 242, 254, 0);
-            }
-            100% {
-                transform: scale(0.8);
-                opacity: 0;
-            }
-        }
+    /* HEADER OVERLAY */
+    .header-overlay {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 1000;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      padding: 12px 20px;
+      border-radius: var(--radius);
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.5), 0 0 10px var(--accent-glow);
+      pointer-events: auto;
+    }
 
-        @keyframes pulse-red {
-            0% {
-                transform: scale(0.8);
-                opacity: 0.9;
-                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8), 0 0 20px 8px rgba(239, 68, 68, 0.6);
-            }
-            70% {
-                transform: scale(1.5);
-                opacity: 0;
-                box-shadow: 0 0 0 30px rgba(239, 68, 68, 0), 0 0 40px 15px rgba(239, 68, 68, 0);
-            }
-            100% {
-                transform: scale(0.8);
-                opacity: 0;
-            }
-        }
+    .header-overlay h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-transform: uppercase;
+    }
 
-        .glow-point-icon { background: transparent; border: none; }
-        .glow-point-container { width: 100%; height: 100%; position: relative; display: flex; align-items: center; justify-content: center; }
+    .header-overlay h1::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background-color: var(--accent-cyan);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--accent-cyan), 0 0 20px var(--accent-cyan);
+      animation: pulse 2s infinite;
+    }
 
-        .glow-ring-cyan {
-            position: absolute; width: 26px; height: 26px; border-radius: 50%;
-            background: rgba(0, 242, 254, 0.4); animation: pulse-glow 2s infinite cubic-bezier(0.45, 0, 0.55, 1);
-        }
-        .glow-ring-red {
-            position: absolute; width: 28px; height: 28px; border-radius: 50%;
-            background: rgba(239, 68, 68, 0.4); animation: pulse-red 1.5s infinite cubic-bezier(0.45, 0, 0.55, 1);
-        }
+    .header-overlay p {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 2px;
+    }
 
-        .glow-core-cyan {
-            width: 14px; height: 14px; border-radius: 50%; background: #ffffff;
-            border: 3px solid var(--accent-cyan); box-shadow: 0 0 15px var(--accent-cyan), 0 0 30px var(--accent-cyan); z-index: 2;
-        }
-        .glow-core-red {
-            width: 14px; height: 14px; border-radius: 50%; background: #ffffff;
-            border: 3px solid var(--accent-red); box-shadow: 0 0 15px var(--accent-red), 0 0 30px var(--accent-red); z-index: 2;
-        }
+    /* RIGHT DATA PANEL CARD */
+    .data-panel {
+      width: 420px;
+      height: calc(100vh - 32px);
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 1000;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      box-shadow: -5px 0 25px rgba(0, 0, 0, 0.6), inset 0 0 15px rgba(0, 240, 255, 0.05);
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+      overflow: hidden;
+    }
 
-        @keyframes dash-flow {
-            to { stroke-dashoffset: -20; }
-        }
+    .data-panel.hidden {
+      transform: translateX(450px);
+      opacity: 0;
+      pointer-events: none;
+    }
 
-        .glow-line-cyan {
-            stroke: var(--accent-cyan) !important; stroke-opacity: 0.85 !important;
-            filter: drop-shadow(0px 0px 8px var(--accent-cyan)) drop-shadow(0px 0px 18px var(--accent-cyan));
-        }
-        .glow-line-gold {
-            stroke: var(--accent-gold) !important; stroke-opacity: 0.85 !important;
-            filter: drop-shadow(0px 0px 8px var(--accent-gold)) drop-shadow(0px 0px 18px var(--accent-gold));
-        }
-        .glow-line-red {
-            stroke: var(--accent-red) !important; stroke-opacity: 0.9 !important;
-            filter: drop-shadow(0px 0px 10px var(--accent-red)) drop-shadow(0px 0px 22px var(--accent-red));
-        }
+    .panel-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--panel-border);
+      background: rgba(0, 0, 0, 0.2);
+      position: relative;
+    }
 
-        .glow-line-flow {
-            stroke: #ffffff !important; stroke-dasharray: 6, 12; animation: dash-flow 0.9s linear infinite;
-        }
+    .panel-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+      display: block;
+    }
 
-        /* ==================== ИНТЕРФЕЙС И ВЕРХНИЕ ПАНЕЛИ ==================== */
+    .panel-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.3;
+    }
 
-        .top-bar {
-            position: absolute; top: 16px; left: 16px; z-index: 1000; display: flex; gap: 12px; align-items: center;
-        }
+    .panel-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
 
-        .search-trigger {
-            background: var(--panel-bg); border: 1px solid var(--panel-border); backdrop-filter: blur(12px);
-            padding: 10px 18px; border-radius: 10px; color: var(--text-sub); cursor: pointer;
-            display: flex; align-items: center; gap: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); transition: all 0.25s ease;
-        }
-        .search-trigger:hover { border-color: var(--accent-cyan); color: var(--text-main); box-shadow: 0 0 20px rgba(0, 242, 254, 0.25); }
-        .search-trigger kbd { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 11px; color: var(--text-main); }
+    .panel-close:hover {
+      color: var(--accent-cyan);
+    }
 
-        /* Карточка аналитики и энергобаланса */
-        .analytics-card {
-            position: absolute; top: 16px; right: 16px; z-index: 1000; background: var(--panel-bg);
-            border: 1px solid var(--panel-border); backdrop-filter: blur(12px); padding: 18px; border-radius: 14px;
-            width: 330px; box-shadow: 0 12px 40px rgba(0,0,0,0.5); display: none;
-        }
-        .analytics-card h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--accent-cyan); margin-bottom: 12px; }
-        .metric-group { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
-        .metric-value { font-weight: 600; }
-        
-        .status-badge {
-            display: block; padding: 6px; border-radius: 6px; font-size: 11px; font-weight: 700; text-align: center; margin-top: 10px;
-        }
-        .status-normal { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border: 1px solid var(--accent-green); }
-        .status-alert { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); border: 1px solid var(--accent-red); }
+    .panel-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: flex-start;
+      flex-direction: column;
+      gap: 16px;
+    }
 
-        /* Поисковый модуль (Spotlight Modal) */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.65);
-            backdrop-filter: blur(6px); z-index: 2000; display: none; justify-content: center; align-items: flex-start; padding-top: 10vh;
-        }
-        .search-modal {
-            background: var(--panel-bg); border: 1px solid var(--panel-border); width: 90%; max-width: 620px;
-            border-radius: 14px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-        }
-        .search-input-wrapper { display: flex; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--panel-border); }
-        .search-input-wrapper input { background: transparent; border: none; outline: none; color: #fff; font-size: 17px; width: 100%; margin-left: 12px; }
-        .search-results { max-height: 380px; overflow-y: auto; padding: 8px 0; }
-        .result-item {
-            padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.15s ease;
-        }
-        .result-item:hover { background: rgba(0, 242, 254, 0.12); }
-        .result-title { font-weight: 600; font-size: 14px; }
-        .result-sub { font-size: 12px; color: var(--text-sub); }
+    /* DATA GRID FIELDS */
+    .field-group {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 12px;
+      transition: border-color 0.3s;
+    }
 
-        /* Нижний тулбар управления */
-        .bottom-actions {
-            position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 1000;
-            background: var(--panel-bg); border: 1px solid var(--panel-border); backdrop-filter: blur(12px);
-            padding: 6px 14px; border-radius: 30px; display: flex; gap: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.4);
-        }
-        .btn-action {
-            background: transparent; border: none; color: var(--text-main); padding: 8px 16px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.2s;
-        }
-        .btn-action:hover { background: rgba(255,255,255,0.1); }
-        .btn-action.active { background: var(--accent-blue); font-weight: 600; }
-        .btn-reset-glow {
-            position: absolute; bottom: 24px; right: 24px; z-index: 1000; background: var(--panel-bg);
-            border: 1px solid var(--panel-border); color: var(--text-sub); padding: 10px 16px; border-radius: 8px;
-            cursor: pointer; backdrop-filter: blur(8px); transition: 0.2s;
-        }
-        .btn-reset-glow:hover { border-color: var(--accent-red); color: var(--accent-red); }
-    </style>
+    .field-group:hover {
+      border-color: rgba(0, 240, 255, 0.3);
+    }
+
+    .field-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 4px;
+    }
+
+    .field-value {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: #fff;
+      word-break: break-word;
+      white-space: pre-line;
+    }
+
+    .field-value.highlight {
+      color: var(--accent-cyan);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      text-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    /* BUTTONS / LINKS */
+    .links-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .btn-link {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: rgba(0, 240, 255, 0.05);
+      border: 1px solid var(--accent-cyan);
+      border-radius: 6px;
+      color: var(--accent-cyan);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);
+    }
+
+    .btn-link:hover {
+      background: var(--accent-cyan);
+      color: #000;
+      box-shadow: 0 0 20px var(--accent-cyan);
+      transform: translateY(-2px);
+    }
+
+    /* CUSTOM GLOW MAP ELEMENTS */
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+      background: var(--panel-bg) !important;
+      color: var(--text-main) !important;
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--panel-border);
+      box-shadow: 0 0 15px rgba(0,0,0,0.8);
+    }
+
+    /* ANIMATIONS */
+    @keyframes pulse {
+      0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(0, 240, 255, 0.7);
+      }
+      70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 10px rgba(0, 240, 255, 0);
+      }
+      100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(0, 240, 255, 0);
+      }
+    }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--panel-border);
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-cyan);
+    }
+  </style>
 </head>
 <body>
 
-    <div id="map"></div>
+<div id="app">
+  <!-- TOP LEFT TITLE OVERLAY -->
+  <div class="header-overlay">
+    <h1>ПТО Инженер / Карта Энергосетей</h1>
+    <p>Мониторинг ПС, КТП и Электроустановок</p>
+  </div>
 
-    <!-- Верхний поиск -->
-    <div class="top-bar">
-        <div class="search-trigger" onclick="openSearch()">
-            🔍 <span>Быстрый поиск по объектам...</span>
-            <kbd>Ctrl K</kbd>
-        </div>
+  <!-- LEAFLET MAP -->
+  <div id="map"></div>
+
+  <!-- RIGHT SIDEBAR DATA CARD -->
+  <div id="dataCard" class="data-panel hidden">
+    <div class="panel-header">
+      <span id="objType" class="panel-tag">Тип объекта</span>
+      <h2 id="objName" class="panel-title">Наименование объекта</h2>
+      <button class="panel-close" onclick="closePanel()">&times;</button>
     </div>
+    
+    <div class="panel-body">
+      <div class="field-group">
+        <div class="field-label">Идентификатор (ID)</div>
+        <div id="objId" class="field-value highlight">-</div>
+      </div>
 
-    <!-- Панель анализа энергобаланса выбранного объекта -->
-    <div class="analytics-card" id="analyticsCard">
-        <h4 id="cardTitle">⚡ ТРАНСФОРМАТОРНАЯ ПОДСТАНЦИЯ</h4>
-        <div class="metric-group">
-            <span style="color:var(--text-sub)">Диспетчерское имя:</span>
-            <span class="metric-value" id="dispName">ТП-102</span>
+      <div class="field-group">
+        <div class="field-label">Класс напряжения / Мощность</div>
+        <div id="objVoltage" class="field-value">-</div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">Дата ввода / Год</div>
+        <div id="objYear" class="field-value">-</div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">Питается от (Федер / Источник)</div>
+        <div id="objFedFrom" class="field-value">-</div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">Техническое описание / Параметры</div>
+        <div id="objDesc" class="field-value">-</div>
+      </div>
+
+      <div class="field-group" id="linksGroup">
+        <div class="field-label">Документация и схемы</div>
+        <div id="objLinks" class="links-container">
+          <!-- ссылки вставятся динамически -->
         </div>
-        <div class="metric-group">
-            <span style="color:var(--text-sub)">Приход (Поступление):</span>
-            <span class="metric-value" id="valIn">14 500 кВт·ч</span>
-        </div>
-        <div class="metric-group">
-            <span style="color:var(--text-sub)">Расход (Отпуск):</span>
-            <span class="metric-value" id="valOut">13 820 кВт·ч</span>
-        </div>
-        <div class="metric-group">
-            <span style="color:var(--text-sub)">Фактические потери:</span>
-            <span class="metric-value" id="valLoss">680 кВт·ч (4.69%)</span>
-        </div>
-        <div id="statusBadge" class="status-badge status-normal">✅ Потери в пределах нормы</div>
+      </div>
     </div>
+  </div>
+</div>
 
-    <!-- Модальное окно глобального поиска -->
-    <div class="modal-overlay" id="searchModal" onclick="closeSearch(event)">
-        <div class="search-modal" onclick="event.stopPropagation()">
-            <div class="search-input-wrapper">
-                🔎 <input type="text" id="searchInput" placeholder="Поиск ТП, опоры, фидера или линии..." oninput="onSearchInput(this.value)">
-            </div>
-            <div class="search-results" id="searchResults">
-                <!-- Динамически заполняется скриптом -->
-            </div>
-        </div>
-    </div>
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- Нижняя панель инструментов -->
-    <div class="bottom-actions">
-        <button class="btn-action" id="rulerBtn" onclick="toggleRulerMode()">📏 Линейка</button>
-        <button class="btn-action" onclick="exportCSV()">📥 Экспорт CSV</button>
-        <button class="btn-action" onclick="addInspectionMark()">📝 Акт осмотра</button>
-    </div>
+<script>
+  // GeoJSON данные напрямую из предоставленного файла
+  const geojsonData = {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[66.7200739, 44.1880497], [66.7199613, 44.188019], [66.7199371, 44.1880613], [66.7198325, 44.1880305], [66.7198567, 44.1879901], [66.7195375, 44.1878882], [66.7194597, 44.1880151], [66.7187355, 44.1878016], [66.7191378, 44.1871419], [66.7203824, 44.187517], [66.7200739, 44.1880497]]]}, "properties": {"id": "substation_0001", "name": "\"Шиели\" ПС 220/110/35/10 кВ", "object_type": "substation", "voltage": "220/110/35/10 кВ", "parent_id": null, "fed_from": null, "year": "07.10.1994", "power_kva": null, "balance": null, "inventory_no": null, "length": null, "description": "Дата ввода в эксплуатацию: 07.10.1994\nТ-1 мощность: 40 000 кВА\nТ-2 мощность: 16 000 кВА\nТип устр.РЗА: 7SJ825, 7SJ8042, 7SJ85, 7UT82, 7UT86", "links": [{"name": "Гео-схема", "url": "https://www.google.com/maps/d/viewer?hl=ru&mid=1UqN86d6VyzQL0MXQDKVtVRaLhrjvZd4&ll=44.17740384068313%2C66.71204850000001&z=15"}, {"name": "ТБ", "url": "https://tbkrekshieli.taplink.kz"}, {"name": "Версия 2.0", "url": "https://vabang747-lab.github.io/energo-map/"}, {"name": "Фото", "url": "https://mymaps.usercontent.google.com/hostedimage/m/*/3AAjQbR4wumQF_RPFFaAuG_QEr13tu3UhFogvFPet6ypFar3YhK1o4wxfKN1vCUGJqWYW0s3nqdIg4-C4bUcTFO4unlQ_waD9HG-QB1FMukr45ULLjhvWV-UnL6ztALrKofG0_M3lX_DIkxcElx4Wm0sZq8XcJ0u3qYt7vrOIIw2yS4-y0QdbMAmxuZucjX-WP1kfNWRKzEeAYD6UE8uZFCSlbFhswYzkqFFGGXX8Ty0PzW7CukhV4HgIZX1hhs0?authuser=0&fife=s16383"}], "source_folder": "Электроустановки"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[66.7392481, 44.1657996], [66.7390926, 44.1657775], [66.7391207, 44.1656909], [66.7392683, 44.165713], [66.7392481, 44.1657996]]]}, "properties": {"id": "substation_0002", "name": "\"ЦРП-10 кВ\" ПС", "object_type": "substation", "voltage": null, "parent_id": null, "fed_from": null, "year": "04.08.1982", "power_kva": null, "balance": null, "inventory_no": null, "length": null, "description": "Дата ввода в эксплуатацию: 04.08.1982", "links": [{"name": "Гео-схема", "url": "https://www.google.com/maps/d/u/0/viewer?hl=ru&mid=1ZiT75tuaCmxam5m6lNwi0OUH2rbWMyA&ll=44.161923076224305%2C66.73364400000001&z=17"}, {"name": "Однолинейная схема", "url": "https://miro.com/app/board/uXjVHVvZ-uQ=/?moveToWidget=3458764672747890157&cot=14"}, {"name": "Анимация", "url": "https://canva.link/sf1ipihpeiuxp3o"}, {"name": "Фото", "url": "https://mymaps.usercontent.google.com/hostedimage/m/*/3AAjQbR47NyxLBwq7vYq2O4ngfYr8cCUZzXiJmDfUHBrlQd3reeCrieM1e_zPyHaMaVhKKVh_QN-FZK3QVd6F3nMsKthunHAqUzdcpLpYj4eYTIUizPcRPqCZ_cLx8E0col_h9zICKBR5sumPu1gtW1FtyS1FOwTq-PrD9J9smISgvWKTQknPz3av8HAQM95zwJ44Z16TmS7RJLoYT-3tYDQFAqZvZ576slWEE9M2n_YKAq66o_2eLLYGhpRAG3g?authuser=0&fife=s16383"}], "source_folder": "Электроустановки"}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [66.7579496, 44.1598957]}, "properties": {"id": "tp_0001", "name": "610 КТПН-10/0,4 кВ", "object_type": "tp", "voltage": "10/0,4 кВ", "parent_id": "feeder_0040", "fed_from": "ф.Шыгыс-3", "year": null, "power_kva": null, "balance": null, "inventory_no": null, "length": null, "description": null, "links": [{"name": "Фото 1", "url": "https://mymaps.usercontent.google.com/hostedimage/m/*/3AAjQbR4Cy6ezZLIhJ2S3g1F61BV6mMc2jzAYlVcsTDDa0klKGvsoChbDM-_cMQtKXeV-4Ywb0wGIoD3ix74DDm2k2dSIC-A1wScmQMzSg9VGU81h5oSwv3sbo7sFLWaY2QT9bTJWsPhZR_ATBrNkdy7NsRtfCWy_lSgiiuZxpZ8SirXS3tXyPXlsVQKIjFAdyRCfJsbNi4ruI6eJBziQKo9JqgJ6wSntDGBG_ukO-FuReRPn7hcFUVVZS2X_M8M?authuser=0&fife=s16383"}], "source_folder": "Трансформаторные пункты"}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [66.7283119, 44.1627517]}, "properties": {"id": "tp_0021", "name": "82 КТПН-10/0,4 кВ", "object_type": "tp", "voltage": "10/0,4 кВ", "parent_id": "feeder_0034", "fed_from": "ф.Советский", "year": null, "power_kva": "400 кВА", "balance": null, "inventory_no": null, "length": null, "description": null, "links": [{"name": "Паспорт", "url": "https://docs.google.com/document/d/1zj5R9i-DyGRqS0G7sTyHnOGzT77ieXS5/edit?usp=sharing"}], "source_folder": "Трансформаторные пункты"}}
+  ]};
 
-    <button class="btn-reset-glow" onclick="clearGlow()">✨ Снять подсветку</button>
+  // 1. Инициализация темной карты CartoDB Dark Matter
+  const map = L.map('map', {
+    zoomControl: false
+  }).setView([44.1800, 66.7300], 13);
 
-    <script>
-        // ==================== 1. ИНИЦИАЛИЗА КАРТЫ И БАЗЫ ДАННЫХ ====================
+  L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
-        const map = L.map('map', { zoomControl: false }).setView([44.1833, 66.7500], 14);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19, subdomains: 'abcd', attribution: '&copy; OpenStreetMap &copy; CARTO'
-        }).addTo(map);
+  // 2. Стилизация объектов под неоновый Glow-эффект
+  const substationStyle = {
+    color: '#00f0ff',
+    weight: 2,
+    opacity: 0.9,
+    fillColor: '#00f0ff',
+    fillOpacity: 0.25
+  };
 
-        L.control.zoom({ position: 'bottomright' }).addTo(map);
+  // Функция отображения карточки
+  function openPanel(props) {
+    const card = document.getElementById('dataCard');
+    
+    document.getElementById('objType').innerText = props.object_type ? props.object_type.toUpperCase() : 'ОБЪЕКТ';
+    document.getElementById('objName').innerText = props.name || 'Без названия';
+    document.getElementById('objId').innerText = props.id || '-';
+    document.getElementById('objVoltage').innerText = props.voltage || props.power_kva || 'Н/Д';
+    document.getElementById('objYear').innerText = props.year || 'Н/Д';
+    document.getElementById('objFedFrom').innerText = props.fed_from || 'Н/Д';
+    document.getElementById('objDesc').innerText = props.description || 'Описание отсутствует';
 
-        // Хранилище слоев неонового свечения
-        let activeGlowLayer = null;
-        let activeGlowFlowLine = null;
-        let isRulerActive = false;
-        let rulerPoints = [];
-        let rulerPolyline = null;
+    // Рендер ссылок
+    const linksContainer = document.getElementById('objLinks');
+    linksContainer.innerHTML = '';
+    
+    if (props.links && props.links.length > 0) {
+      document.getElementById('linksGroup').style.display = 'block';
+      props.links.forEach(link => {
+        const a = document.createElement('a');
+        a.className = 'btn-link';
+        a.href = link.url;
+        a.target = '_blank';
+        a.innerHTML = `<span>${link.name}</span> <span>&#8599;</span>`;
+        linksContainer.appendChild(a);
+      });
+    } else {
+      document.getElementById('linksGroup').style.display = 'none';
+    }
 
-        // База объектов электросети
-        const dbObjects = {
-            substations: [
-                { id: 'TP-102', name: 'ТП-102 Центр', lat: 44.1833, lng: 66.7500, type: '10/0.4 кВ', pIn: 14500, pOut: 13820, lossPct: 4.69, status: 'normal' },
-                { id: 'TP-105', name: 'ТП-105 Север', lat: 44.1890, lng: 66.7580, type: '10/0.4 кВ', pIn: 22000, pOut: 20400, lossPct: 7.27, status: 'alert' }
-            ],
-            lines: [
-                {
-                    id: 'F-10', name: 'ЛЭП 10 кВ (Фидер №10)', voltage: '10кВ',
-                    coords: [[44.1833, 66.7500], [44.1860, 66.7540], [44.1890, 66.7580]],
-                    status: 'normal'
-                },
-                {
-                    id: 'F-12', name: 'ЛЭП 10 кВ (Фидер №12 Аварийный)', voltage: '10кВ',
-                    coords: [[44.1833, 66.7500], [44.1810, 66.7420], [44.1780, 66.7380]],
-                    status: 'alert'
-                }
-            ]
-        };
+    card.classList.remove('hidden');
+  }
 
-        // ==================== 2. ОТРИСОВКА БАЗОВЫХ ОБЪЕКТОВ СЕТИ ====================
+  function closePanel() {
+    document.getElementById('dataCard').classList.add('hidden');
+  }
 
-        // Отрисовка ТП
-        dbObjects.substations.forEach(tp => {
-            const markerColor = tp.status === 'alert' ? '#ef4444' : '#3b82f6';
-            const marker = L.circleMarker([tp.lat, tp.lng], {
-                radius: 8, fillColor: markerColor, color: '#ffffff', weight: 2, fillOpacity: 0.9
-            }).addTo(map);
-
-            marker.on('click', (e) => {
-                L.DomEvent.stopPropagation(e);
-                highlightPoint([tp.lat, tp.lng], tp);
-            });
-        });
-
-        // Отрисовка Линий
-        dbObjects.lines.forEach(line => {
-            const lineColor = line.status === 'alert' ? '#ef4444' : '#f59e0b';
-            const polyline = L.polyline(line.coords, {
-                color: lineColor, weight: 4, opacity: 0.75
-            }).addTo(map);
-
-            polyline.on('click', (e) => {
-                L.DomEvent.stopPropagation(e);
-                highlightLine(polyline, line);
-            });
-        });
-
-        // ==================== 3. МЕХАНИЗМЫ СВЕЧЕНИЯ (GLOW SYSTEM) ====================
-
-        function highlightPoint(latlng, tpData) {
-            clearGlow();
-
-            const isAlert = tpData.status === 'alert';
-            const iconClass = isAlert ? 'glow-ring-red' : 'glow-ring-cyan';
-            const coreClass = isAlert ? 'glow-core-red' : 'glow-core-cyan';
-
-            const customGlowIcon = L.divIcon({
-                className: 'glow-point-icon',
-                html: `<div class="glow-point-container"><div class="${iconClass}"></div><div class="${coreClass}"></div></div>`,
-                iconSize: [36, 36], iconAnchor: [18, 18]
-            });
-
-            activeGlowLayer = L.marker(latlng, { icon: customGlowIcon, zIndexOffset: 1000 }).addTo(map);
-            
-            updateAnalyticsPanel(tpData);
-            map.flyTo(latlng, 16, { duration: 1.2 });
+  // 3. Добавление GeoJSON на карту с интерактивностью
+  const geoLayer = L.geoJSON(geojsonData, {
+    style: function(feature) {
+      return substationStyle;
+    },
+    pointToLayer: function(feature, latlng) {
+      // Иконка точки с эффектом пульсирующего неонового свечения
+      const customIcon = L.divIcon({
+        className: 'custom-glow-pin',
+        html: `<div style="
+          width: 14px; 
+          height: 14px; 
+          background: #ffaa00; 
+          border-radius: 50%; 
+          box-shadow: 0 0 10px #ffaa00, 0 0 20px #ffaa00; 
+          border: 2px solid #fff;"></div>`,
+        iconSize: [14, 14],
+        iconAnchor: [7, 7]
+      });
+      return L.marker(latlng, { icon: customIcon });
+    },
+    onEachFeature: function(feature, layer) {
+      layer.on('click', function(e) {
+        openPanel(feature.properties);
+        
+        // Подсветка полигона при клике
+        if (layer.setStyle) {
+          geoLayer.resetStyle();
+          layer.setStyle({
+            color: '#ffaa00',
+            fillColor: '#ffaa00',
+            fillOpacity: 0.5
+          });
         }
+      });
+    }
+  }).addTo(map);
 
-        function highlightLine(polyline, lineData) {
-            clearGlow();
-
-            const coords = polyline.getLatLngs();
-            const glowClass = lineData.status === 'alert' ? 'glow-line-red' : 'glow-line-gold';
-
-            // Вычисление длины линии через Turf.js
-            const lineGeoJSON = polyline.toGeoJSON();
-            const lengthKm = turf.length(lineGeoJSON, { units: 'kilometers' }).toFixed(2);
-
-            // Нижний светящийся слой
-            activeGlowLayer = L.polyline(coords, { className: glowClass, weight: 10 }).addTo(map);
-
-            // Верхний анимированный бегущий слой
-            activeGlowFlowLine = L.polyline(coords, { className: 'glow-line-flow', weight: 4 }).addTo(map);
-
-            updateAnalyticsPanelForLine(lineData, lengthKm);
-        }
-
-        function clearGlow() {
-            if (activeGlowLayer) { map.removeLayer(activeGlowLayer); activeGlowLayer = null; }
-            if (activeGlowFlowLine) { map.removeLayer(activeGlowFlowLine); activeGlowFlowLine = null; }
-            document.getElementById('analyticsCard').style.display = 'none';
-        }
-
-        // ==================== 4. ПАНЕЛЬ АНАЛИТИКИ И ЭНЕРГОБАЛАНСА ====================
-
-        function updateAnalyticsPanel(tp) {
-            document.getElementById('cardTitle').innerText = '⚡ ' + tp.name;
-            document.getElementById('dispName').innerText = tp.id;
-            document.getElementById('valIn').innerText = tp.pIn.toLocaleString() + ' кВт·ч';
-            document.getElementById('valOut').innerText = tp.pOut.toLocaleString() + ' кВт·ч';
-
-            const lossVal = tp.pIn - tp.pOut;
-            document.getElementById('valLoss').innerText = `${lossVal.toLocaleString()} кВт·ч (${tp.lossPct}%)`;
-
-            const badge = document.getElementById('statusBadge');
-            if (tp.lossPct > 5.0) {
-                badge.className = 'status-badge status-alert';
-                badge.innerText = '⚠️ Превышение нормы потерь (>5%)';
-            } else {
-                badge.className = 'status-badge status-normal';
-                badge.innerText = '✅ Потери в пределах нормы';
-            }
-
-            document.getElementById('analyticsCard').style.display = 'block';
-        }
-
-        function updateAnalyticsPanelForLine(line, lengthKm) {
-            document.getElementById('cardTitle').innerText = '📏 ' + line.name;
-            document.getElementById('dispName').innerText = line.voltage;
-            document.getElementById('valIn').innerText = 'Длина: ' + lengthKm + ' км';
-            document.getElementById('valOut').innerText = 'Статус: ' + (line.status === 'alert' ? 'Авария' : 'В норме');
-            document.getElementById('valLoss').innerText = '---';
-
-            const badge = document.getElementById('statusBadge');
-            if (line.status === 'alert') {
-                badge.className = 'status-badge status-alert';
-                badge.innerText = '⚠️ Обнаружен аварийный участок!';
-            } else {
-                badge.className = 'status-badge status-normal';
-                badge.innerText = '✅ Линия под напряжением';
-            }
-
-            document.getElementById('analyticsCard').style.display = 'block';
-        }
-
-        // ==================== 5. ГЛОБАЛЬНЫЙ ПОИСК (SPOTLIGHT) ====================
-
-        function openSearch() {
-            document.getElementById('searchModal').style.display = 'flex';
-            document.getElementById('searchInput').focus();
-            renderSearchResults('');
-        }
-
-        function closeSearch(e) { document.getElementById('searchModal').style.display = 'none'; }
-
-        function onSearchInput(val) { renderSearchResults(val.toLowerCase()); }
-
-        function renderSearchResults(query) {
-            const container = document.getElementById('searchResults');
-            container.innerHTML = '';
-
-            dbObjects.substations.filter(s => s.name.toLowerCase().includes(query) || s.id.toLowerCase().includes(query)).forEach(s => {
-                const item = document.createElement('div');
-                item.className = 'result-item';
-                item.innerHTML = `<div><div class="result-title">${s.name}</div><div class="result-sub">${s.type} • ${s.id}</div></div><span style="color:var(--accent-cyan); font-size:12px;">Перейти ➔</span>`;
-                item.onclick = () => { closeSearch(); highlightPoint([s.lat, s.lng], s); };
-                container.appendChild(item);
-            });
-
-            dbObjects.lines.filter(l => l.name.toLowerCase().includes(query) || l.id.toLowerCase().includes(query)).forEach(l => {
-                const item = document.createElement('div');
-                item.className = 'result-item';
-                item.innerHTML = `<div><div class="result-title">${l.name}</div><div class="result-sub">Класс напряжения: ${l.voltage}</div></div><span style="color:var(--accent-cyan); font-size:12px;">Перейти ➔</span>`;
-                item.onclick = () => {
-                    closeSearch();
-                    const polyline = L.polyline(l.coords);
-                    highlightLine(polyline, l);
-                    map.flyTo(l.coords[0], 15);
-                };
-                container.appendChild(item);
-            });
-        }
-
-        window.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openSearch(); }
-            if (e.key === 'Escape') { closeSearch(); }
-        });
-
-        // ==================== 6. ИНСТРУМЕНТЫ (ЛИНЕЙКА, ЭКСПОРТ, ЗАМЕТКИ) ====================
-
-        function toggleRulerMode() {
-            isRulerActive = !isRulerActive;
-            const btn = document.getElementById('rulerBtn');
-            if (isRulerActive) {
-                btn.classList.add('active');
-                rulerPoints = [];
-                alert('Режим линейки включен: Кликайте по карте для измерения расстояния.');
-            } else {
-                btn.classList.remove('active');
-                if (rulerPolyline) map.removeLayer(rulerPolyline);
-            }
-        }
-
-        map.on('click', (e) => {
-            if (isRulerActive) {
-                rulerPoints.push([e.latlng.lat, e.latlng.lng]);
-                if (rulerPolyline) map.removeLayer(rulerPolyline);
-
-                rulerPolyline = L.polyline(rulerPoints, { color: '#00f2fe', weight: 3, dashArray: '5, 10' }).addTo(map);
-
-                if (rulerPoints.length > 1) {
-                    const lineString = turf.lineString(rulerPoints.map(p => [p[1], p[0]]));
-                    const distKm = turf.length(lineString, { units: 'kilometers' }).toFixed(3);
-                    L.popup().setLatLng(e.latlng).setContent(`<b>Расстояние:</b> ${distKm} км`).openOn(map);
-                }
-            } else {
-                clearGlow();
-            }
-        });
-
-        function exportCSV() {
-            let csvContent = "data:text/csv;charset=utf-8,ID,Name,Type,Status\n";
-            dbObjects.substations.forEach(s => { csvContent += `${s.id},"${s.name}",${s.type},${s.status}\n`; });
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "energy_grid_export.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        function addInspectionMark() {
-            alert('Кликните в любой точке карты, чтобы добавить отметку о дефекте.');
-        }
-    </script>
+  // Масштабирование карты под объекты
+  if (geoLayer.getBounds().isValid()) {
+    map.fitBounds(geoLayer.getBounds(), { padding: [50, 50] });
+  }
+</script>
 </body>
 </html>

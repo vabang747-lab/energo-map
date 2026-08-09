@@ -322,8 +322,14 @@ function makeFeatureLayer(o) {
   return layer;
 }
 
+/* Исправленная функция связи */
 function isLineConnectedToParent(childObj, parentObj) {
   if (!childObj || !parentObj) return false;
+  if (childObj.id === parentObj.id) return false;
+
+  const parentCat = getVoltageCategory(parentObj);
+  // Подсвечивать отходящие линии нужно ТОЛЬКО если кликнули на узловой объект (ПС / РП / ТП)
+  if (parentCat !== "substation" && parentCat !== "tp") return false;
 
   const parentName = String(parentObj.name || "").toLowerCase().trim();
   const parentId = String(parentObj.id || "").toLowerCase().trim();
@@ -331,9 +337,11 @@ function isLineConnectedToParent(childObj, parentObj) {
   const pId = String(childObj.parent_id || "").toLowerCase().trim();
   const fedFrom = String(childObj.fed_from || "").toLowerCase().trim();
 
+  // 1. Прямая привязка по parent_id или fed_from
   if (pId && (pId === parentId || pId === parentName)) return true;
   if (fedFrom && (fedFrom === parentId || fedFrom === parentName)) return true;
 
+  // 2. Проверка по жесткому словарю EXPLICIT_CONNECTIONS (для ПС)
   for (const [pKey, childKeywords] of Object.entries(EXPLICIT_CONNECTIONS)) {
     if (parentName.includes(pKey) || parentId.includes(pKey)) {
       if (childKeywords.some(keyword => childName.includes(keyword))) {
@@ -342,10 +350,15 @@ function isLineConnectedToParent(childObj, parentObj) {
     }
   }
 
-  const tpNumMatch = parentName.match(/\d+/);
-  const tpNum = tpNumMatch ? tpNumMatch[0] : null;
-  if (childName.includes(parentName)) return true;
-  if (tpNum && (childName.includes("тп-" + tpNum) || childName.includes("тп " + tpNum) || childName.includes("тп" + tpNum))) return true;
+  // 3. Проверка для линий 0,4 кВ и ТП (например ТП-194 и ВЛ-0.4кВ ТП-194)
+  if (parentCat === "tp") {
+    const tpNumMatch = parentName.match(/\d+/);
+    if (tpNumMatch) {
+      const tpNum = tpNumMatch[0];
+      const childHasTpNum = childName.includes("тп-" + tpNum) || childName.includes("тп " + tpNum) || childName.includes("тп" + tpNum);
+      if (childHasTpNum) return true;
+    }
+  }
 
   return false;
 }

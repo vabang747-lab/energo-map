@@ -133,7 +133,9 @@ const esri = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/W
 const labels = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",{maxZoom:20,attribution:"© CARTO"});
 
 osm.addTo(map);
-L.control.layers({"Стандартная схема":osm,"Спутник":esri,"Гибрид: спутник + подписи":L.layerGroup([esri,labels]),"Светлая схема":carto},null,{collapsed:false,position:"topright"}).addTo(map);
+
+// ИЗМЕНЕНИЕ 1: Переключение слоев перенесено на левую сторону (position: "topleft")
+L.control.layers({"Стандартная схема":osm,"Спутник":esri,"Гибрид: спутник + подписи":L.layerGroup([esri,labels]),"Светлая схема":carto},null,{collapsed:false,position:"topleft"}).addTo(map);
 
 const layers = new Map();
 const objects = new Map();
@@ -191,7 +193,9 @@ function renderGeoJSON() {
     const layer=makeFeatureLayer(o);
     if(!layer)return;
     layers.set(o.id,layer);
-    if (!objectIs04(o)) layer.addTo(map);
+    
+    // ИЗМЕНЕНИЕ 2: Удалено ограничение if (!objectIs04(o)). Все объекты (включая ТП и 0,4 кВ) добавляются сразу.
+    layer.addTo(map);
   });
 
   const allLayers = Array.from(layers.values());
@@ -238,11 +242,6 @@ function refreshAll(){
   const rel=selectedId?relatedForSelection(selectedId):null;
   DATA.forEach(o=>{
     const l=layers.get(o.id); if(!l)return;
-    if(objectIs04(o)){
-      const visible=selectedTp04.has(o.parent_id);
-      if(visible && !map.hasLayer(l)) l.addTo(map);
-      if(!visible && map.hasLayer(l)) map.removeLayer(l);
-    }
     const s=styleForObject(o);
     const active=selectedId ? rel.has(o.id) : true;
     const op=active?1:.25;

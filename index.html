@@ -1,451 +1,2618 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ПТО Энергоучёт | Геопортал РЭС</title>
-  
-  <!-- Leaflet CSS for Map -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <!-- Google Fonts: JetBrains Mono & Inter -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-  
-  <style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Геоинформационная модель энергоузла — ПТО</title>
+
+<link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+
+<style>
+/* =========================================================
+   ОСНОВНЫЕ НАСТРОЙКИ
+========================================================= */
+
+:root {
+    --bg: #071018;
+    --panel: rgba(9, 20, 29, 0.94);
+    --panel2: rgba(13, 29, 41, 0.96);
+    --border: rgba(99, 190, 255, 0.18);
+
+    --text: #e8f5ff;
+    --muted: #7f9bad;
+
+    --cyan: #00d9ff;
+    --blue: #168cff;
+    --green: #00e59a;
+    --yellow: #ffd43b;
+    --orange: #ff9f43;
+    --red: #ff4f68;
+    --purple: #b66cff;
+
+    --sidebar-width: 390px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family:
+        Inter,
+        "Segoe UI",
+        Arial,
+        sans-serif;
+}
+
+/* =========================================================
+   ОСНОВНОЙ LAYOUT
+========================================================= */
+
+.app {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+}
+
+#map {
+    position: relative;
+    flex: 1;
+    height: 100%;
+    background: #071018;
+}
+
+/* =========================================================
+   ПРАВАЯ ПАНЕЛЬ
+========================================================= */
+
+.sidebar {
+    width: var(--sidebar-width);
+    height: 100%;
+    background:
+        linear-gradient(
+            180deg,
+            rgba(9, 23, 34, 0.98),
+            rgba(5, 14, 22, 0.99)
+        );
+
+    border-left: 1px solid var(--border);
+
+    display: flex;
+    flex-direction: column;
+
+    z-index: 2000;
+
+    box-shadow:
+        -20px 0 50px rgba(0, 0, 0, 0.28);
+}
+
+/* HEADER */
+
+.sidebar-header {
+    padding: 18px 18px 14px;
+
+    border-bottom: 1px solid var(--border);
+
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(0, 217, 255, 0.10),
+            transparent 45%
+        );
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-icon {
+    width: 40px;
+    height: 40px;
+
+    display: grid;
+    place-items: center;
+
+    border: 1px solid rgba(0, 217, 255, 0.45);
+    border-radius: 10px;
+
+    color: var(--cyan);
+
+    background: rgba(0, 217, 255, 0.06);
+
+    box-shadow:
+        0 0 20px rgba(0, 217, 255, 0.10);
+}
+
+.brand-title {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+
+.brand-subtitle {
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+/* =========================================================
+   ПОИСК
+========================================================= */
+
+.search-box {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+.search-input {
+    width: 100%;
+
+    padding: 10px 12px;
+
+    color: var(--text);
+    background: rgba(255,255,255,0.035);
+
+    border: 1px solid rgba(120,190,230,0.14);
+    border-radius: 8px;
+
+    outline: none;
+
+    transition: 0.2s;
+}
+
+.search-input:focus {
+    border-color: rgba(0,217,255,0.55);
+
+    box-shadow:
+        0 0 0 3px rgba(0,217,255,0.07),
+        0 0 20px rgba(0,217,255,0.08);
+}
+
+.search-input::placeholder {
+    color: #627b8c;
+}
+
+/* =========================================================
+   ФИЛЬТРЫ
+========================================================= */
+
+.filters {
+    padding: 10px 14px;
+
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+
+    border-bottom: 1px solid var(--border);
+}
+
+.filter-btn {
+    padding: 6px 9px;
+
+    font-size: 10px;
+    font-weight: 700;
+
+    color: #8fa8b8;
+
+    background: rgba(255,255,255,0.025);
+
+    border: 1px solid rgba(120,190,230,0.13);
+    border-radius: 6px;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s,
+        color 0.2s,
+        border-color 0.2s,
+        box-shadow 0.2s;
+}
+
+.filter-btn:hover,
+.filter-btn.active {
+    color: white;
+
+    border-color: rgba(0,217,255,0.5);
+
+    background: rgba(0,217,255,0.08);
+
+    box-shadow:
+        0 0 15px rgba(0,217,255,0.08);
+}
+
+/* =========================================================
+   СТАТУС
+========================================================= */
+
+.status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 8px 14px;
+
+    font-size: 10px;
+
+    color: var(--muted);
+
+    border-bottom: 1px solid var(--border);
+}
+
+.status-online {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.status-dot {
+    width: 7px;
+    height: 7px;
+
+    border-radius: 50%;
+
+    background: var(--green);
+
+    box-shadow:
+        0 0 8px var(--green);
+
+    animation: statusPulse 1.8s infinite;
+}
+
+@keyframes statusPulse {
+    0%, 100% {
+        opacity: 1;
+        box-shadow: 0 0 7px var(--green);
+    }
+
+    50% {
+        opacity: .45;
+        box-shadow: 0 0 16px var(--green);
+    }
+}
+
+/* =========================================================
+   КАРТОЧКА ОБЪЕКТА
+========================================================= */
+
+.card-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+}
+
+.card-container::-webkit-scrollbar {
+    width: 5px;
+}
+
+.card-container::-webkit-scrollbar-thumb {
+    background: rgba(100,180,220,0.2);
+    border-radius: 5px;
+}
+
+.empty-card {
+    height: 100%;
+
+    display: flex;
+    flex-direction: column;
+
+    justify-content: center;
+    align-items: center;
+
+    text-align: center;
+
+    color: #688092;
+}
+
+.empty-icon {
+    font-size: 42px;
+    opacity: .25;
+    margin-bottom: 15px;
+}
+
+.empty-card strong {
+    color: #91a9b8;
+    font-size: 13px;
+}
+
+.empty-card span {
+    max-width: 250px;
+    margin-top: 7px;
+
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+/* =========================================================
+   OBJECT CARD
+========================================================= */
+
+.object-card {
+    border: 1px solid rgba(0,217,255,0.18);
+    border-radius: 12px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(16,37,51,0.95),
+            rgba(7,18,28,0.96)
+        );
+
+    overflow: hidden;
+
+    box-shadow:
+        0 12px 35px rgba(0,0,0,.25);
+
+    animation: cardIn .25s ease;
+}
+
+@keyframes cardIn {
+    from {
+        opacity: 0;
+        transform: translateX(15px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.object-header {
+    padding: 15px;
+
+    border-bottom: 1px solid rgba(120,190,230,0.13);
+
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(0,217,255,.12),
+            transparent 55%
+        );
+}
+
+.object-type {
+    display: inline-block;
+
+    margin-bottom: 8px;
+
+    padding: 4px 7px;
+
+    font-size: 9px;
+    font-weight: 800;
+
+    text-transform: uppercase;
+
+    border-radius: 5px;
+
+    background: rgba(0,217,255,.08);
+    color: var(--cyan);
+
+    border: 1px solid rgba(0,217,255,.18);
+}
+
+.object-name {
+    font-size: 16px;
+    line-height: 1.3;
+
+    font-weight: 800;
+}
+
+.object-id {
+    margin-top: 6px;
+
+    font-size: 9px;
+
+    color: #60798b;
+
+    font-family: monospace;
+}
+
+/* =========================================================
+   DATA ROWS
+========================================================= */
+
+.data-section {
+    padding: 12px 14px;
+}
+
+.section-title {
+    margin-bottom: 9px;
+
+    color: #6f899b;
+
+    font-size: 9px;
+    font-weight: 800;
+
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.data-row {
+    display: grid;
+    grid-template-columns: 42% 58%;
+
+    padding: 7px 0;
+
+    border-bottom: 1px solid rgba(120,190,230,0.07);
+}
+
+.data-label {
+    color: #6e8798;
+    font-size: 10px;
+}
+
+.data-value {
+    color: #dcecf6;
+
+    font-size: 10px;
+
+    word-break: break-word;
+}
+
+.description {
+    white-space: pre-line;
+
+    color: #bdd2df;
+
+    font-size: 10px;
+    line-height: 1.55;
+}
+
+/* =========================================================
+   LINKS
+========================================================= */
+
+.links {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.link-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 8px 10px;
+
+    color: #9edff1;
+
+    text-decoration: none;
+
+    font-size: 10px;
+
+    background: rgba(0,217,255,.035);
+
+    border: 1px solid rgba(0,217,255,.10);
+
+    border-radius: 6px;
+
+    transition: .2s;
+}
+
+.link-btn:hover {
+    color: white;
+
+    border-color: rgba(0,217,255,.4);
+
+    background: rgba(0,217,255,.09);
+
+    box-shadow:
+        0 0 16px rgba(0,217,255,.07);
+}
+
+/* =========================================================
+   RELATED
+========================================================= */
+
+.related-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.related-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 7px 8px;
+
+    border-radius: 6px;
+
+    background: rgba(255,255,255,.025);
+
+    cursor: pointer;
+
+    transition: .2s;
+}
+
+.related-item:hover {
+    background: rgba(0,217,255,.08);
+}
+
+.related-name {
+    max-width: 235px;
+
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    font-size: 10px;
+}
+
+.related-type {
+    font-size: 8px;
+    color: #668292;
+}
+
+/* =========================================================
+   MAP CONTROLS
+========================================================= */
+
+.map-toolbar {
+    position: absolute;
+
+    top: 15px;
+    left: 15px;
+
+    z-index: 1000;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 6px;
+}
+
+.tool-btn {
+    min-width: 40px;
+    height: 40px;
+
+    padding: 0 12px;
+
+    border: 1px solid rgba(100,190,230,.18);
+    border-radius: 8px;
+
+    background: rgba(7,18,27,.88);
+
+    color: #bfe7f5;
+
+    cursor: pointer;
+
+    backdrop-filter: blur(12px);
+
+    transition: .2s;
+
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.tool-btn:hover {
+    color: white;
+
+    border-color: rgba(0,217,255,.5);
+
+    box-shadow:
+        0 0 20px rgba(0,217,255,.12);
+}
+
+/* =========================================================
+   MAP LEGEND
+========================================================= */
+
+.legend {
+    position: absolute;
+
+    left: 15px;
+    bottom: 18px;
+
+    z-index: 1000;
+
+    padding: 11px 13px;
+
+    background: rgba(7,18,27,.9);
+
+    border: 1px solid rgba(100,190,230,.15);
+
+    border-radius: 9px;
+
+    backdrop-filter: blur(12px);
+
+    font-size: 9px;
+
+    color: #9ab1bf;
+}
+
+.legend-title {
+    margin-bottom: 7px;
+
+    font-weight: 800;
+
+    color: #d8ebf5;
+}
+
+.legend-row {
+    display: flex;
+    align-items: center;
+
+    gap: 7px;
+
+    margin: 5px 0;
+}
+
+.legend-line {
+    width: 24px;
+    height: 3px;
+    border-radius: 5px;
+}
+
+.legend-point {
+    width: 8px;
+    height: 8px;
+
+    border-radius: 50%;
+}
+
+/* =========================================================
+   LEAFLET
+========================================================= */
+
+.leaflet-control-zoom a {
+    background: rgba(7,18,27,.92) !important;
+    color: #bce7f5 !important;
+    border-color: rgba(100,190,230,.15) !important;
+}
+
+.leaflet-control-attribution {
+    background: rgba(7,18,27,.75) !important;
+    color: #668292 !important;
+}
+
+.leaflet-control-attribution a {
+    color: #83b8cc !important;
+}
+
+/* =========================================================
+   ОБЪЕКТЫ GEOJSON
+========================================================= */
+
+/*
+    Точки создаются через divIcon.
+    Свечение сделано CSS-анимацией.
+*/
+
+.power-point {
+    position: relative;
+
+    width: 16px;
+    height: 16px;
+}
+
+.power-point::before {
+    content: "";
+
+    position: absolute;
+
+    width: 8px;
+    height: 8px;
+
+    left: 4px;
+    top: 4px;
+
+    border-radius: 50%;
+
+    background: currentColor;
+
+    box-shadow:
+        0 0 5px currentColor,
+        0 0 12px currentColor;
+}
+
+.power-point::after {
+    content: "";
+
+    position: absolute;
+
+    left: 0;
+    top: 0;
+
+    width: 16px;
+    height: 16px;
+
+    border-radius: 50%;
+
+    border: 1px solid currentColor;
+
+    opacity: .35;
+
+    animation: pointPulse 2.2s infinite;
+}
+
+@keyframes pointPulse {
+    0% {
+        transform: scale(.55);
+        opacity: .7;
+    }
+
+    70% {
+        transform: scale(1.7);
+        opacity: 0;
+    }
+
+    100% {
+        transform: scale(1.7);
+        opacity: 0;
+    }
+}
+
+/* При наведении */
+
+.leaflet-marker-icon:hover .power-point::before {
+    box-shadow:
+        0 0 8px currentColor,
+        0 0 18px currentColor,
+        0 0 32px currentColor;
+
+    transform: scale(1.25);
+}
+
+.leaflet-marker-icon:hover .power-point::after {
+    animation-duration: .7s;
+}
+
+/* =========================================================
+   ВЫБРАННЫЙ ОБЪЕКТ
+========================================================= */
+
+.selected-object {
+    animation: selectedGlow 1.15s infinite alternate;
+}
+
+@keyframes selectedGlow {
+    from {
+        filter:
+            drop-shadow(0 0 4px rgba(0,217,255,.5))
+            drop-shadow(0 0 10px rgba(0,217,255,.35));
+    }
+
+    to {
+        filter:
+            drop-shadow(0 0 8px rgba(0,217,255,.9))
+            drop-shadow(0 0 25px rgba(0,217,255,.75))
+            drop-shadow(0 0 45px rgba(0,217,255,.35));
+    }
+}
+
+/* =========================================================
+   ПОДСВЕТКА ЛИНИИ
+========================================================= */
+
+.line-glow {
+    animation: lineGlow 1.2s infinite alternate;
+}
+
+@keyframes lineGlow {
+    from {
+        filter:
+            drop-shadow(0 0 2px rgba(0,217,255,.6));
+    }
+
+    to {
+        filter:
+            drop-shadow(0 0 7px rgba(0,217,255,1))
+            drop-shadow(0 0 18px rgba(0,217,255,.7));
+    }
+}
+
+/* =========================================================
+   МАРШРУТ / АНИМАЦИЯ
+========================================================= */
+
+.flow-line {
+    stroke-dasharray: 8 12;
+    animation: flowAnimation 1.1s linear infinite;
+}
+
+@keyframes flowAnimation {
+    to {
+        stroke-dashoffset: -20;
+    }
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 900px) {
+
     :root {
-      --bg-dark: #0a0e14;
-      --panel-bg: rgba(16, 23, 34, 0.75);
-      --panel-border: rgba(0, 240, 255, 0.2);
-      --accent-cyan: #00f0ff;
-      --accent-glow: rgba(0, 240, 255, 0.4);
-      --accent-amber: #ffaa00;
-      --text-main: #e0e6ed;
-      --text-muted: #8a99ad;
-      --radius: 12px;
+        --sidebar-width: 330px;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Inter', sans-serif;
+}
+
+@media (max-width: 700px) {
+
+    .sidebar {
+        position: absolute;
+
+        right: 0;
+        top: 0;
+
+        width: min(390px, 92vw);
+
+        box-shadow:
+            -15px 0 40px rgba(0,0,0,.5);
     }
 
-    body, html {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background-color: var(--bg-dark);
-      color: var(--text-main);
-    }
-
-    #app {
-      display: flex;
-      width: 100vw;
-      height: 100vh;
-      position: relative;
-    }
-
-    /* MAP CONTAINER */
-    #map {
-      flex: 1;
-      height: 100%;
-      background: #070a0f;
-      z-index: 1;
-    }
-
-    /* HEADER OVERLAY */
-    .header-overlay {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      z-index: 1000;
-      background: var(--panel-bg);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--panel-border);
-      padding: 12px 20px;
-      border-radius: var(--radius);
-      box-shadow: 0 0 15px rgba(0, 0, 0, 0.5), 0 0 10px var(--accent-glow);
-      pointer-events: auto;
-    }
-
-    .header-overlay h1 {
-      font-size: 1.1rem;
-      font-weight: 700;
-      letter-spacing: 1px;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-transform: uppercase;
-    }
-
-    .header-overlay h1::before {
-      content: '';
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      background-color: var(--accent-cyan);
-      border-radius: 50%;
-      box-shadow: 0 0 10px var(--accent-cyan), 0 0 20px var(--accent-cyan);
-      animation: pulse 2s infinite;
-    }
-
-    .header-overlay p {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      font-family: 'JetBrains Mono', monospace;
-      margin-top: 2px;
-    }
-
-    /* RIGHT DATA PANEL CARD */
-    .data-panel {
-      width: 420px;
-      height: calc(100vh - 32px);
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      z-index: 1000;
-      background: var(--panel-bg);
-      backdrop-filter: blur(16px);
-      border: 1px solid var(--panel-border);
-      border-radius: var(--radius);
-      box-shadow: -5px 0 25px rgba(0, 0, 0, 0.6), inset 0 0 15px rgba(0, 240, 255, 0.05);
-      display: flex;
-      flex-direction: column;
-      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
-      overflow: hidden;
-    }
-
-    .data-panel.hidden {
-      transform: translateX(450px);
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .panel-header {
-      padding: 20px;
-      border-bottom: 1px solid var(--panel-border);
-      background: rgba(0, 0, 0, 0.2);
-      position: relative;
-    }
-
-    .panel-tag {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.7rem;
-      color: var(--accent-cyan);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 4px;
-      display: block;
-    }
-
-    .panel-title {
-      font-size: 1.2rem;
-      font-weight: 700;
-      color: #fff;
-      line-height: 1.3;
-    }
-
-    .panel-close {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      font-size: 1.5rem;
-      cursor: pointer;
-      transition: color 0.2s;
-    }
-
-    .panel-close:hover {
-      color: var(--accent-cyan);
-    }
-
-    .panel-body {
-      padding: 20px;
-      overflow-y: auto;
-      flex: 1;
-      display: flex;
-      flex-direction: flex-start;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    /* DATA GRID FIELDS */
-    .field-group {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: 8px;
-      padding: 12px;
-      transition: border-color 0.3s;
-    }
-
-    .field-group:hover {
-      border-color: rgba(0, 240, 255, 0.3);
-    }
-
-    .field-label {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      font-family: 'JetBrains Mono', monospace;
-      margin-bottom: 4px;
-    }
-
-    .field-value {
-      font-size: 0.95rem;
-      font-weight: 500;
-      color: #fff;
-      word-break: break-word;
-      white-space: pre-line;
-    }
-
-    .field-value.highlight {
-      color: var(--accent-cyan);
-      font-family: 'JetBrains Mono', monospace;
-      font-weight: 700;
-      text-shadow: 0 0 8px var(--accent-glow);
-    }
-
-    /* BUTTONS / LINKS */
-    .links-container {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 8px;
-    }
-
-    .btn-link {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 14px;
-      background: rgba(0, 240, 255, 0.05);
-      border: 1px solid var(--accent-cyan);
-      border-radius: 6px;
-      color: var(--accent-cyan);
-      text-decoration: none;
-      font-size: 0.85rem;
-      font-weight: 600;
-      font-family: 'JetBrains Mono', monospace;
-      transition: all 0.3s ease;
-      box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);
-    }
-
-    .btn-link:hover {
-      background: var(--accent-cyan);
-      color: #000;
-      box-shadow: 0 0 20px var(--accent-cyan);
-      transform: translateY(-2px);
-    }
-
-    /* CUSTOM GLOW MAP ELEMENTS */
-    .leaflet-popup-content-wrapper, .leaflet-popup-tip {
-      background: var(--panel-bg) !important;
-      color: var(--text-main) !important;
-      backdrop-filter: blur(10px);
-      border: 1px solid var(--panel-border);
-      box-shadow: 0 0 15px rgba(0,0,0,0.8);
-    }
-
-    /* ANIMATIONS */
-    @keyframes pulse {
-      0% {
-        transform: scale(0.95);
-        box-shadow: 0 0 0 0 rgba(0, 240, 255, 0.7);
-      }
-      70% {
-        transform: scale(1);
-        box-shadow: 0 0 0 10px rgba(0, 240, 255, 0);
-      }
-      100% {
-        transform: scale(0.95);
-        box-shadow: 0 0 0 0 rgba(0, 240, 255, 0);
-      }
-    }
-
-    /* SCROLLBAR */
-    ::-webkit-scrollbar {
-      width: 4px;
-    }
-    ::-webkit-scrollbar-track {
-      background: rgba(0, 0, 0, 0.1);
-    }
-    ::-webkit-scrollbar-thumb {
-      background: var(--panel-border);
-      border-radius: 2px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--accent-cyan);
-    }
-  </style>
+}
+</style>
 </head>
+
 <body>
 
-<div id="app">
-  <!-- TOP LEFT TITLE OVERLAY -->
-  <div class="header-overlay">
-    <h1>ПТО Инженер / Карта Энергосетей</h1>
-    <p>Мониторинг ПС, КТП и Электроустановок</p>
-  </div>
+<div class="app">
 
-  <!-- LEAFLET MAP -->
-  <div id="map"></div>
+    <!-- =====================================================
+         MAP
+    ====================================================== -->
 
-  <!-- RIGHT SIDEBAR DATA CARD -->
-  <div id="dataCard" class="data-panel hidden">
-    <div class="panel-header">
-      <span id="objType" class="panel-tag">Тип объекта</span>
-      <h2 id="objName" class="panel-title">Наименование объекта</h2>
-      <button class="panel-close" onclick="closePanel()">&times;</button>
-    </div>
-    
-    <div class="panel-body">
-      <div class="field-group">
-        <div class="field-label">Идентификатор (ID)</div>
-        <div id="objId" class="field-value highlight">-</div>
-      </div>
+    <div id="map">
 
-      <div class="field-group">
-        <div class="field-label">Класс напряжения / Мощность</div>
-        <div id="objVoltage" class="field-value">-</div>
-      </div>
+        <div class="map-toolbar">
 
-      <div class="field-group">
-        <div class="field-label">Дата ввода / Год</div>
-        <div id="objYear" class="field-value">-</div>
-      </div>
+            <button class="tool-btn" id="fitBtn">
+                ⌖ ВЕСЬ ЭНЕРГОУЗЕЛ
+            </button>
 
-      <div class="field-group">
-        <div class="field-label">Питается от (Федер / Источник)</div>
-        <div id="objFedFrom" class="field-value">-</div>
-      </div>
+            <button class="tool-btn" id="satelliteBtn">
+                ◉ СПУТНИК
+            </button>
 
-      <div class="field-group">
-        <div class="field-label">Техническое описание / Параметры</div>
-        <div id="objDesc" class="field-value">-</div>
-      </div>
+            <button class="tool-btn" id="resetBtn">
+                ↻ СБРОС
+            </button>
 
-      <div class="field-group" id="linksGroup">
-        <div class="field-label">Документация и схемы</div>
-        <div id="objLinks" class="links-container">
-          <!-- ссылки вставятся динамически -->
         </div>
-      </div>
+
+        <div class="legend">
+
+            <div class="legend-title">
+                СЕТИ
+            </div>
+
+            <div class="legend-row">
+                <span
+                    class="legend-line"
+                    style="background:#ff3b4f;height:5px">
+                </span>
+                110 кВ
+            </div>
+
+            <div class="legend-row">
+                <span
+                    class="legend-line"
+                    style="background:#ff9f43">
+                </span>
+                35 кВ
+            </div>
+
+            <div class="legend-row">
+                <span
+                    class="legend-line"
+                    style="background:#ffd43b">
+                </span>
+                10 кВ
+            </div>
+
+            <div class="legend-row">
+                <span
+                    class="legend-line"
+                    style="background:#38bdf8">
+                </span>
+                0.4 кВ
+            </div>
+
+            <div class="legend-row">
+                <span
+                    class="legend-point"
+                    style="background:#00e59a">
+                </span>
+                ТП
+            </div>
+
+        </div>
+
     </div>
-  </div>
+
+
+    <!-- =====================================================
+         RIGHT PANEL
+    ====================================================== -->
+
+    <aside class="sidebar">
+
+        <div class="sidebar-header">
+
+            <div class="brand">
+
+                <div class="brand-icon">
+                    ⚡
+                </div>
+
+                <div>
+                    <div class="brand-title">
+                        ПТО / Энергоузел
+                    </div>
+
+                    <div class="brand-subtitle">
+                        Геоинформационная модель электрических сетей
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="search-box">
+
+            <input
+                type="text"
+                class="search-input"
+                id="searchInput"
+                placeholder="Поиск ТП, ПС, фидера, линии..."
+            >
+
+        </div>
+
+
+        <div class="filters">
+
+            <button
+                class="filter-btn active"
+                data-filter="all">
+                ВСЕ
+            </button>
+
+            <button
+                class="filter-btn"
+                data-filter="substation">
+                ПС
+            </button>
+
+            <button
+                class="filter-btn"
+                data-filter="rp">
+                РП
+            </button>
+
+            <button
+                class="filter-btn"
+                data-filter="tp">
+                ТП
+            </button>
+
+            <button
+                class="filter-btn"
+                data-filter="feeder">
+                ФИДЕР
+            </button>
+
+            <button
+                class="filter-btn"
+                data-filter="line">
+                ЛИНИИ
+            </button>
+
+        </div>
+
+
+        <div class="status-bar">
+
+            <div class="status-online">
+
+                <span class="status-dot"></span>
+
+                GEOJSON ЗАГРУЖЕН
+
+            </div>
+
+            <div id="objectCounter">
+                0 объектов
+            </div>
+
+        </div>
+
+
+        <div
+            class="card-container"
+            id="cardContainer">
+
+            <div class="empty-card">
+
+                <div class="empty-icon">
+                    ⚡
+                </div>
+
+                <strong>
+                    ОБЪЕКТ НЕ ВЫБРАН
+                </strong>
+
+                <span>
+                    Наведите курсор на элемент сети
+                    или нажмите на объект для просмотра
+                    технической информации.
+                </span>
+
+            </div>
+
+        </div>
+
+    </aside>
+
 </div>
 
-<!-- Leaflet JS -->
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-  // GeoJSON данные напрямую из предоставленного файла
-  const geojsonData = {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[66.7200739, 44.1880497], [66.7199613, 44.188019], [66.7199371, 44.1880613], [66.7198325, 44.1880305], [66.7198567, 44.1879901], [66.7195375, 44.1878882], [66.7194597, 44.1880151], [66.7187355, 44.1878016], [66.7191378, 44.1871419], [66.7203824, 44.187517], [66.7200739, 44.1880497]]]}, "properties": {"id": "substation_0001", "name": "\"Шиели\" ПС 220/110/35/10 кВ", "object_type": "substation", "voltage": "220/110/35/10 кВ", "parent_id": null, "fed_from": null, "year": "07.10.1994", "power_kva": null, "balance": null, "inventory_no": null, "length": null, "description": "Дата ввода в эксплуатацию: 07.10.1994\nТ-1 мощность: 40 000 кВА\nТ-2 мощность: 16 000 кВА\nТип устр.РЗА: 7SJ825, 7SJ8042, 7SJ85, 7UT82, 7UT86", "links": [{"name": "Гео-схема", "url": "https://www.google.com/maps/d/viewer?hl=ru&mid=1UqN86d6VyzQL0MXQDKVtVRaLhrjvZd4&ll=44.17740384068313%2C66.71204850000001&z=15"}, {"name": "ТБ", "url": "https://tbkrekshieli.taplink.kz"}, {"name": "Версия 2.0", "url": "https://vabang747-lab.github.io/energo-map/"}, {"name": "Фото", "url": "https://mymaps.usercontent.google.com/hostedimage/m/*/3AAjQbR4wumQF_RPFFaAuG_QEr13tu3UhFogvFPet6ypFar3YhK1o4wxfKN1vCUGJqWYW0s3nqdIg4-C4bUcTFO4unlQ_waD9HG-QB1FMukr45ULLjhvWV-UnL6ztALrKofG0_M3lX_DIkxcElx4Wm0sZq8XcJ0u3qYt7vrOIIw2yS4-y0QdbMAmxuZucjX-WP1kfNWRKzEeAYD6UE8uZFCSlbFhswYzkqFFGGXX8Ty0PzW7CukhV4HgIZX1hhs0?authuser=0&fife=s16383"}], "source_folder": "Электроустановки"}}, {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[66.7392481, 44.1657996], [66.7390926, 44.1657775], [66.7391207, 44.1656909], [66.7392683, 44.165713], [66.7392481, 44.1657996]]]}, "properties": {"id": "substation_0002", "name": "\"ЦРП-10 кВ\" ПС", "object_type": "substation", "voltage": null, "parent_id": null, "fed_from": null, "year": "04.08.1982", "power_kva": null, "balance": null, "inventory_no": null, "length": null, "description": "Дата ввода в эксплуатацию: 04.08.1982", "links": [{"name": "Гео-схема", "url": "https://www.google.com/maps/d/u/0/viewer?hl=ru&mid=1ZiT75tuaCmxam5m6lNwi0OUH2rbWMyA&ll=44.161923076224305%2C66.73364400000001&z=17"}, {"name": "Однолинейная схема", "url": "https://miro.com/app/board/uXjVHVvZ-uQ=/?moveToWidget=3458764672747890157&cot=14"}, {"name": "Анимация", "url": "https://canva.link/sf1ipihpeiuxp3o"}, {"name": "Фото", "url": "https://mymaps.usercontent.google.com/hostedimage/m/*/3AAjQbR47NyxLBwq7vYq2O4ngfYr8cCUZzXiJmDfUHBrlQd3reeCrieM1e_zPyHaMaVhKKVh_QN-FZK3QVd6F3nMsKthunHAqUzdcpLpYj4eYTIUizPcRPqCZ_cLx8E0col_h9zICKBR5sumPu1gtW1FtyS1FOwTq-PrD9J9smISgvWKTQknPz3av8HAQM95zwJ44Z16TmS7RJLoYT-3tYDQFAqZvZ576slWEE9M2n_YKAq66o_2eLLYGhpRAG3g?authuser=0&fife=s16383"}], "source_folder": "Электроустановки"}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [66.7579496, 44.1598957]}, "properties": {"id": "tp_0001", "name": "610 КТПН-10/0,4 кВ", "object_type": "tp", "voltage": "10/0,4 кВ", "parent_id": "feeder_0040", "fed_from": "ф.Шыгыс-3", "year": null, "power_kva": null, "balance": null, "inventory_no": null, "length": null, "description": null, "links": [{"name": "Фото 1", "url": "https://mymaps.usercontent.google.com/hostedimage/m/*/3AAjQbR4Cy6ezZLIhJ2S3g1F61BV6mMc2jzAYlVcsTDDa0klKGvsoChbDM-_cMQtKXeV-4Ywb0wGIoD3ix74DDm2k2dSIC-A1wScmQMzSg9VGU81h5oSwv3sbo7sFLWaY2QT9bTJWsPhZR_ATBrNkdy7NsRtfCWy_lSgiiuZxpZ8SirXS3tXyPXlsVQKIjFAdyRCfJsbNi4ruI6eJBziQKo9JqgJ6wSntDGBG_ukO-FuReRPn7hcFUVVZS2X_M8M?authuser=0&fife=s16383"}], "source_folder": "Трансформаторные пункты"}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [66.7283119, 44.1627517]}, "properties": {"id": "tp_0021", "name": "82 КТПН-10/0,4 кВ", "object_type": "tp", "voltage": "10/0,4 кВ", "parent_id": "feeder_0034", "fed_from": "ф.Советский", "year": null, "power_kva": "400 кВА", "balance": null, "inventory_no": null, "length": null, "description": null, "links": [{"name": "Паспорт", "url": "https://docs.google.com/document/d/1zj5R9i-DyGRqS0G7sTyHnOGzT77ieXS5/edit?usp=sharing"}], "source_folder": "Трансформаторные пункты"}}
-  ]};
 
-  // 1. Инициализация темной карты CartoDB Dark Matter
-  const map = L.map('map', {
-    zoomControl: false
-  }).setView([44.1800, 66.7300], 13);
+/* =========================================================
+   CONFIG
+========================================================= */
 
-  L.control.zoom({ position: 'bottomleft' }).addTo(map);
+const GEOJSON_FILE = "./data_synchronized(1).geojson";
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    subdomains: 'abcd',
-    maxZoom: 19
-  }).addTo(map);
+let map;
+let geoJsonLayer;
 
-  // 2. Стилизация объектов под неоновый Glow-эффект
-  const substationStyle = {
-    color: '#00f0ff',
-    weight: 2,
-    opacity: 0.9,
-    fillColor: '#00f0ff',
-    fillOpacity: 0.25
-  };
+let satelliteLayer;
+let baseLayer;
 
-  // Функция отображения карточки
-  function openPanel(props) {
-    const card = document.getElementById('dataCard');
-    
-    document.getElementById('objType').innerText = props.object_type ? props.object_type.toUpperCase() : 'ОБЪЕКТ';
-    document.getElementById('objName').innerText = props.name || 'Без названия';
-    document.getElementById('objId').innerText = props.id || '-';
-    document.getElementById('objVoltage').innerText = props.voltage || props.power_kva || 'Н/Д';
-    document.getElementById('objYear').innerText = props.year || 'Н/Д';
-    document.getElementById('objFedFrom').innerText = props.fed_from || 'Н/Д';
-    document.getElementById('objDesc').innerText = props.description || 'Описание отсутствует';
+let allFeatures = [];
 
-    // Рендер ссылок
-    const linksContainer = document.getElementById('objLinks');
-    linksContainer.innerHTML = '';
-    
-    if (props.links && props.links.length > 0) {
-      document.getElementById('linksGroup').style.display = 'block';
-      props.links.forEach(link => {
-        const a = document.createElement('a');
-        a.className = 'btn-link';
-        a.href = link.url;
-        a.target = '_blank';
-        a.innerHTML = `<span>${link.name}</span> <span>&#8599;</span>`;
-        linksContainer.appendChild(a);
-      });
-    } else {
-      document.getElementById('linksGroup').style.display = 'none';
+let currentSelectedLayer = null;
+let currentSelectedFeature = null;
+
+let activeFilter = "all";
+
+
+/* =========================================================
+   COLORS
+========================================================= */
+
+const COLORS = {
+
+    line110: "#ff3b4f",
+    line35: "#ff9f43",
+    line10: "#ffd43b",
+    line04: "#38bdf8",
+
+    tp: "#00e59a",
+    substation: "#ff4f68",
+    rp: "#b66cff",
+    power_object: "#00d9ff",
+
+    feeder: "#00d9ff",
+    input04: "#38bdf8"
+
+};
+
+
+/* =========================================================
+   MAP
+========================================================= */
+
+map = L.map("map", {
+
+    zoomControl: true,
+
+    preferCanvas: true,
+
+    minZoom: 5,
+
+    maxZoom: 20
+
+});
+
+
+baseLayer = L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+        maxZoom: 20,
+        attribution: "&copy; OpenStreetMap"
     }
+).addTo(map);
 
-    card.classList.remove('hidden');
-  }
 
-  function closePanel() {
-    document.getElementById('dataCard').classList.add('hidden');
-  }
+/* =========================================================
+   SATELLITE
+========================================================= */
 
-  // 3. Добавление GeoJSON на карту с интерактивностью
-  const geoLayer = L.geoJSON(geojsonData, {
-    style: function(feature) {
-      return substationStyle;
-    },
-    pointToLayer: function(feature, latlng) {
-      // Иконка точки с эффектом пульсирующего неонового свечения
-      const customIcon = L.divIcon({
-        className: 'custom-glow-pin',
-        html: `<div style="
-          width: 14px; 
-          height: 14px; 
-          background: #ffaa00; 
-          border-radius: 50%; 
-          box-shadow: 0 0 10px #ffaa00, 0 0 20px #ffaa00; 
-          border: 2px solid #fff;"></div>`,
-        iconSize: [14, 14],
-        iconAnchor: [7, 7]
-      });
-      return L.marker(latlng, { icon: customIcon });
-    },
-    onEachFeature: function(feature, layer) {
-      layer.on('click', function(e) {
-        openPanel(feature.properties);
-        
-        // Подсветка полигона при клике
-        if (layer.setStyle) {
-          geoLayer.resetStyle();
-          layer.setStyle({
-            color: '#ffaa00',
-            fillColor: '#ffaa00',
-            fillOpacity: 0.5
-          });
+satelliteLayer = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+        maxZoom: 20,
+        attribution: "Esri"
+    }
+);
+
+
+/* =========================================================
+   GEOJSON LOAD
+========================================================= */
+
+fetch(GEOJSON_FILE)
+
+    .then(response => {
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Не удалось загрузить GeoJSON: " +
+                response.status
+            );
+
         }
-      });
-    }
-  }).addTo(map);
 
-  // Масштабирование карты под объекты
-  if (geoLayer.getBounds().isValid()) {
-    map.fitBounds(geoLayer.getBounds(), { padding: [50, 50] });
-  }
+        return response.json();
+
+    })
+
+    .then(data => {
+
+        allFeatures = data.features || [];
+
+        renderGeoJSON(allFeatures);
+
+        updateCounter();
+
+    })
+
+    .catch(error => {
+
+        console.error(error);
+
+        document.getElementById("cardContainer").innerHTML = `
+
+            <div class="empty-card">
+
+                <div class="empty-icon">
+                    ⚠
+                </div>
+
+                <strong>
+                    ОШИБКА ЗАГРУЗКИ GEOJSON
+                </strong>
+
+                <span>
+                    Проверьте, что файл
+                    <b>data_synchronized(1).geojson</b>
+                    находится рядом с index.html.
+                </span>
+
+            </div>
+
+        `;
+
+    });
+
+
+/* =========================================================
+   GEOJSON RENDER
+========================================================= */
+
+function renderGeoJSON(features) {
+
+    if (geoJsonLayer) {
+
+        map.removeLayer(geoJsonLayer);
+
+    }
+
+
+    geoJsonLayer = L.geoJSON(
+
+        {
+            type: "FeatureCollection",
+            features: features
+        },
+
+        {
+
+            pointToLayer: createPoint,
+
+            style: styleFeature,
+
+            onEachFeature: onEachFeature
+
+        }
+
+    ).addTo(map);
+
+
+    if (geoJsonLayer.getBounds().isValid()) {
+
+        map.fitBounds(
+            geoJsonLayer.getBounds(),
+            {
+                padding: [30, 30]
+            }
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   CREATE POINT
+========================================================= */
+
+function createPoint(feature, latlng) {
+
+    const type =
+        feature.properties?.object_type || "unknown";
+
+    const color =
+        COLORS[type] || COLORS.power_object;
+
+
+    const icon = L.divIcon({
+
+        className: "power-marker",
+
+        html: `
+
+            <div
+                class="power-point"
+                style="color:${color}">
+            </div>
+
+        `,
+
+        iconSize: [16,16],
+
+        iconAnchor: [8,8]
+
+    });
+
+
+    return L.marker(
+        latlng,
+        {
+            icon: icon,
+
+            riseOnHover: true
+        }
+    );
+
+}
+
+
+/* =========================================================
+   FEATURE STYLE
+========================================================= */
+
+function styleFeature(feature) {
+
+    const p = feature.properties || {};
+
+    const type = p.object_type || "";
+
+    let color = COLORS.power_object;
+
+    let weight = 2;
+
+    let opacity = .72;
+
+    let dashArray = null;
+
+
+    if (type === "line110") {
+
+        color = COLORS.line110;
+        weight = 6;
+        opacity = .85;
+
+    }
+
+    else if (type === "line35") {
+
+        color = COLORS.line35;
+        weight = 4;
+        opacity = .82;
+
+    }
+
+    else if (type === "line10") {
+
+        color = COLORS.line10;
+        weight = 3;
+        opacity = .78;
+
+    }
+
+    else if (
+        type === "line04" ||
+        type === "input04"
+    ) {
+
+        color = COLORS.line04;
+        weight = 2;
+        opacity = .55;
+        dashArray = "5 6";
+
+    }
+
+    else if (type === "feeder") {
+
+        color = COLORS.feeder;
+        weight = 3;
+        opacity = .7;
+
+    }
+
+
+    return {
+
+        color: color,
+
+        weight: weight,
+
+        opacity: opacity,
+
+        fillColor: color,
+
+        fillOpacity:
+            type === "substation" ||
+            type === "rp"
+                ? .15
+                : .04,
+
+        dashArray: dashArray,
+
+        lineCap: "round",
+
+        lineJoin: "round"
+
+    };
+
+}
+
+
+/* =========================================================
+   ON EACH FEATURE
+========================================================= */
+
+function onEachFeature(feature, layer) {
+
+    const p = feature.properties || {};
+
+
+    layer.on({
+
+        mouseover: function(e) {
+
+            highlightLayer(layer);
+
+        },
+
+        mouseout: function(e) {
+
+            if (
+                currentSelectedLayer !== layer
+            ) {
+
+                resetLayerStyle(layer);
+
+            }
+
+        },
+
+        click: function(e) {
+
+            L.DomEvent.stopPropagation(e);
+
+            selectObject(
+                feature,
+                layer
+            );
+
+        }
+
+    });
+
+
+    layer.bindTooltip(
+
+        createTooltip(feature),
+
+        {
+
+            sticky: true,
+
+            direction: "top",
+
+            opacity: .95
+
+        }
+
+    );
+
+}
+
+
+/* =========================================================
+   TOOLTIP
+========================================================= */
+
+function createTooltip(feature) {
+
+    const p = feature.properties || {};
+
+    const name =
+        p.name ||
+        p.id ||
+        "Объект";
+
+    const type =
+        p.object_type ||
+        "—";
+
+    const voltage =
+        p.voltage ||
+        "";
+
+    return `
+
+        <div style="
+            font-family:Arial;
+            min-width:160px;
+        ">
+
+            <div style="
+                font-size:11px;
+                font-weight:800;
+                margin-bottom:4px;
+            ">
+                ${escapeHTML(name)}
+            </div>
+
+            <div style="
+                font-size:9px;
+                color:#8ba7b8;
+            ">
+                ${escapeHTML(type)}
+                ${voltage
+                    ? " · " + escapeHTML(voltage)
+                    : ""}
+            </div>
+
+        </div>
+
+    `;
+
+}
+
+
+/* =========================================================
+   HIGHLIGHT
+========================================================= */
+
+function highlightLayer(layer) {
+
+    if (
+        layer === currentSelectedLayer
+    ) {
+
+        return;
+
+    }
+
+
+    if (
+        layer.setStyle
+    ) {
+
+        layer.setStyle({
+
+            weight:
+                (layer.options.weight || 2) + 3,
+
+            opacity: 1,
+
+            color: "#ffffff",
+
+            fillOpacity: .25
+
+        });
+
+    }
+
+
+    if (
+        layer._icon
+    ) {
+
+        layer._icon.classList.add(
+            "selected-object"
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   RESET STYLE
+========================================================= */
+
+function resetLayerStyle(layer) {
+
+    if (
+        layer.setStyle
+    ) {
+
+        layer.setStyle(
+            styleFeature(
+                layer.feature
+            )
+        );
+
+    }
+
+
+    if (
+        layer._icon
+    ) {
+
+        layer._icon.classList.remove(
+            "selected-object"
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   SELECT OBJECT
+========================================================= */
+
+function selectObject(
+    feature,
+    layer,
+    zoom = true
+) {
+
+    currentSelectedLayer =
+        layer;
+
+    currentSelectedFeature =
+        feature;
+
+
+    clearSelection();
+
+
+    currentSelectedLayer =
+        layer;
+
+
+    if (
+        layer.setStyle
+    ) {
+
+        layer.setStyle({
+
+            weight:
+                (layer.options.weight || 2) + 4,
+
+            color: "#ffffff",
+
+            opacity: 1,
+
+            fillOpacity: .30
+
+        });
+
+        layer._path?.classList.add(
+            "line-glow"
+        );
+
+    }
+
+
+    if (
+        layer._icon
+    ) {
+
+        layer._icon.classList.add(
+            "selected-object"
+        );
+
+    }
+
+
+    if (
+        zoom &&
+        layer.getBounds
+    ) {
+
+        map.fitBounds(
+
+            layer.getBounds(),
+
+            {
+                padding: [120, 120],
+
+                maxZoom: 16,
+
+                animate: true,
+
+                duration: .8
+            }
+
+        );
+
+    }
+
+    else if (
+        zoom &&
+        layer.getLatLng
+    ) {
+
+        map.flyTo(
+
+            layer.getLatLng(),
+
+            Math.max(
+                map.getZoom(),
+                15
+            ),
+
+            {
+                animate: true,
+                duration: .8
+            }
+
+        );
+
+    }
+
+
+    renderCard(feature);
+
+}
+
+
+/* =========================================================
+   CLEAR SELECTION
+========================================================= */
+
+function clearSelection() {
+
+    if (
+        currentSelectedLayer
+    ) {
+
+        resetLayerStyle(
+            currentSelectedLayer
+        );
+
+    }
+
+    currentSelectedLayer = null;
+
+}
+
+
+/* =========================================================
+   RENDER CARD
+========================================================= */
+
+function renderCard(feature) {
+
+    const p =
+        feature.properties || {};
+
+
+    const name =
+        p.name ||
+        p.id ||
+        "Без названия";
+
+
+    const type =
+        p.object_type ||
+        "unknown";
+
+
+    const typeName =
+        getTypeName(type);
+
+
+    let html = `
+
+        <div class="object-card">
+
+            <div class="object-header">
+
+                <div class="object-type">
+                    ${escapeHTML(typeName)}
+                </div>
+
+                <div class="object-name">
+                    ${escapeHTML(name)}
+                </div>
+
+                <div class="object-id">
+                    ID: ${escapeHTML(p.id || "—")}
+                </div>
+
+            </div>
+
+
+            <div class="data-section">
+
+                <div class="section-title">
+                    ТЕХНИЧЕСКИЕ ДАННЫЕ
+                </div>
+
+    `;
+
+
+    const fields = [
+
+        ["Напряжение", p.voltage],
+
+        ["Родительский объект", p.parent_id],
+
+        ["Питание от", p.fed_from],
+
+        ["Год / дата", p.year],
+
+        ["Мощность, кВА", p.power_kva],
+
+        ["Балансовая принадлежность", p.balance],
+
+        ["Инвентарный №", p.inventory_no],
+
+        ["Длина", p.length],
+
+        ["Исходная папка", p.source_folder]
+
+    ];
+
+
+    fields.forEach(
+        ([label, value]) => {
+
+            if (
+                value !== null &&
+                value !== undefined &&
+                String(value).trim() !== ""
+            ) {
+
+                html += `
+
+                    <div class="data-row">
+
+                        <div class="data-label">
+                            ${escapeHTML(label)}
+                        </div>
+
+                        <div class="data-value">
+                            ${escapeHTML(value)}
+                        </div>
+
+                    </div>
+
+                `;
+
+            }
+
+        }
+    );
+
+
+    html += `
+
+            </div>
+
+    `;
+
+
+    /* DESCRIPTION */
+
+    if (
+        p.description
+    ) {
+
+        html += `
+
+            <div class="data-section">
+
+                <div class="section-title">
+                    ОПИСАНИЕ
+                </div>
+
+                <div class="description">
+                    ${escapeHTML(p.description)}
+                </div>
+
+            </div>
+
+        `;
+
+    }
+
+
+    /* LINKS */
+
+    if (
+        Array.isArray(p.links) &&
+        p.links.length
+    ) {
+
+        html += `
+
+            <div class="data-section">
+
+                <div class="section-title">
+                    ВНЕШНИЕ ССЫЛКИ
+                </div>
+
+                <div class="links">
+
+        `;
+
+
+        p.links.forEach(
+            link => {
+
+                if (
+                    link &&
+                    link.url
+                ) {
+
+                    html += `
+
+                        <a
+                            class="link-btn"
+                            href="${escapeAttribute(link.url)}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+
+                            <span>
+                                ${escapeHTML(
+                                    link.name ||
+                                    "Открыть"
+                                )}
+                            </span>
+
+                            <span>
+                                ↗
+                            </span>
+
+                        </a>
+
+                    `;
+
+                }
+
+            }
+        );
+
+
+        html += `
+
+                </div>
+
+            </div>
+
+        `;
+
+    }
+
+
+    /* RELATED */
+
+    const related =
+        findRelatedFeatures(
+            feature
+        );
+
+
+    if (
+        related.length
+    ) {
+
+        html += `
+
+            <div class="data-section">
+
+                <div class="section-title">
+                    СВЯЗАННЫЕ ЭЛЕМЕНТЫ
+                </div>
+
+                <div class="related-list">
+
+        `;
+
+
+        related
+            .slice(0, 40)
+            .forEach(
+                item => {
+
+                    const rp =
+                        item.properties || {};
+
+
+                    html += `
+
+                        <div
+                            class="related-item"
+                            data-related-id="${escapeAttribute(
+                                rp.id || ""
+                            )}"
+                        >
+
+                            <span class="related-name">
+                                ${escapeHTML(
+                                    rp.name ||
+                                    rp.id ||
+                                    "Без названия"
+                                )}
+                            </span>
+
+                            <span class="related-type">
+                                ${escapeHTML(
+                                    getTypeName(
+                                        rp.object_type
+                                    )
+                                )}
+                            </span>
+
+                        </div>
+
+                    `;
+
+                }
+            );
+
+
+        html += `
+
+                </div>
+
+            </div>
+
+        `;
+
+    }
+
+
+    html += `
+
+        </div>
+
+    `;
+
+
+    document.getElementById(
+        "cardContainer"
+    ).innerHTML = html;
+
+
+    /* RELATED CLICK */
+
+    document
+        .querySelectorAll(
+            ".related-item"
+        )
+        .forEach(
+            el => {
+
+                el.addEventListener(
+                    "click",
+                    () => {
+
+                        const id =
+                            el.dataset.relatedId;
+
+                        focusById(id);
+
+                    }
+                );
+
+            }
+        );
+
+}
+
+
+/* =========================================================
+   FIND RELATED
+========================================================= */
+
+function findRelatedFeatures(
+    feature
+) {
+
+    const p =
+        feature.properties || {};
+
+
+    const id =
+        p.id;
+
+
+    if (!id) {
+
+        return [];
+
+    }
+
+
+    return allFeatures.filter(
+        item => {
+
+            const rp =
+                item.properties || {};
+
+
+            return (
+
+                rp.id !== id &&
+
+                (
+                    rp.parent_id === id ||
+
+                    rp.fed_from === id ||
+
+                    p.parent_id === rp.id ||
+
+                    p.fed_from === rp.id
+                )
+
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   FOCUS BY ID
+========================================================= */
+
+function focusById(id) {
+
+    if (!id) {
+
+        return;
+
+    }
+
+
+    let target = null;
+
+
+    geoJsonLayer.eachLayer(
+        layer => {
+
+            if (
+                layer.feature?.properties?.id === id
+            ) {
+
+                target = layer;
+
+            }
+
+        }
+    );
+
+
+    if (target) {
+
+        selectObject(
+            target.feature,
+            target
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   TYPE NAMES
+========================================================= */
+
+function getTypeName(type) {
+
+    const names = {
+
+        substation: "ПОДСТАНЦИЯ",
+
+        rp: "РАСПРЕДЕЛИТЕЛЬНЫЙ ПУНКТ",
+
+        tp: "ТРАНСФОРМАТОРНАЯ ПОДСТАНЦИЯ",
+
+        feeder: "ФИДЕР",
+
+        line110: "ЛИНИЯ 110 КВ",
+
+        line35: "ЛИНИЯ 35 КВ",
+
+        line10: "ЛИНИЯ 10 КВ",
+
+        line04: "ЛИНИЯ 0.4 КВ",
+
+        input04: "ВВОД 0.4 КВ",
+
+        power_object: "ЭНЕРГООБЪЕКТ"
+
+    };
+
+
+    return names[type] || type || "ОБЪЕКТ";
+
+}
+
+
+/* =========================================================
+   FILTERS
+========================================================= */
+
+document
+    .querySelectorAll(".filter-btn")
+    .forEach(
+        btn => {
+
+            btn.addEventListener(
+                "click",
+                () => {
+
+                    document
+                        .querySelectorAll(
+                            ".filter-btn"
+                        )
+                        .forEach(
+                            b =>
+                                b.classList.remove(
+                                    "active"
+                                )
+                        );
+
+
+                    btn.classList.add(
+                        "active"
+                    );
+
+
+                    activeFilter =
+                        btn.dataset.filter;
+
+
+                    applyFilters();
+
+                }
+            );
+
+        }
+    );
+
+
+function applyFilters() {
+
+    const search =
+        document
+            .getElementById(
+                "searchInput"
+            )
+            .value
+            .toLowerCase()
+            .trim();
+
+
+    const filtered =
+        allFeatures.filter(
+            feature => {
+
+                const p =
+                    feature.properties || {};
+
+
+                const type =
+                    p.object_type || "";
+
+
+                let typeMatch = true;
+
+
+                if (
+                    activeFilter !== "all"
+                ) {
+
+                    if (
+                        activeFilter === "line"
+                    ) {
+
+                        typeMatch =
+                            type.startsWith(
+                                "line"
+                            ) ||
+                            type === "input04";
+
+                    }
+
+                    else {
+
+                        typeMatch =
+                            type ===
+                            activeFilter;
+
+                    }
+
+                }
+
+
+                const text =
+                    [
+
+                        p.name,
+
+                        p.id,
+
+                        p.voltage,
+
+                        p.parent_id,
+
+                        p.fed_from
+
+                    ]
+                        .filter(Boolean)
+                        .join(" ")
+                        .toLowerCase();
+
+
+                const searchMatch =
+                    !search ||
+                    text.includes(search);
+
+
+                return (
+                    typeMatch &&
+                    searchMatch
+                );
+
+            }
+        );
+
+
+    renderGeoJSON(
+        filtered
+    );
+
+
+    updateCounter(
+        filtered.length
+    );
+
+}
+
+
+/* =========================================================
+   SEARCH
+========================================================= */
+
+document
+    .getElementById(
+        "searchInput"
+    )
+    .addEventListener(
+        "input",
+        debounce(
+            applyFilters,
+            180
+        )
+    );
+
+
+function debounce(
+    fn,
+    delay
+) {
+
+    let timer;
+
+    return function() {
+
+        clearTimeout(timer);
+
+        timer =
+            setTimeout(
+                fn,
+                delay
+            );
+
+    };
+
+}
+
+
+/* =========================================================
+   COUNTER
+========================================================= */
+
+function updateCounter(
+    count = allFeatures.length
+) {
+
+    document.getElementById(
+        "objectCounter"
+    ).textContent =
+        `${count.toLocaleString("ru-RU")} объектов`;
+
+}
+
+
+/* =========================================================
+   FIT
+========================================================= */
+
+document
+    .getElementById("fitBtn")
+    .addEventListener(
+        "click",
+        () => {
+
+            if (
+                geoJsonLayer &&
+                geoJsonLayer.getBounds().isValid()
+            ) {
+
+                map.fitBounds(
+                    geoJsonLayer.getBounds(),
+                    {
+                        padding: [30,30],
+                        animate: true
+                    }
+                );
+
+            }
+
+        }
+    );
+
+
+/* =========================================================
+   SATELLITE
+========================================================= */
+
+let satelliteActive = false;
+
+document
+    .getElementById(
+        "satelliteBtn"
+    )
+    .addEventListener(
+        "click",
+        function() {
+
+            satelliteActive =
+                !satelliteActive;
+
+
+            if (
+                satelliteActive
+            ) {
+
+                map.removeLayer(
+                    baseLayer
+                );
+
+                satelliteLayer.addTo(
+                    map
+                );
+
+                this.textContent =
+                    "▣ КАРТА";
+
+            }
+
+            else {
+
+                map.removeLayer(
+                    satelliteLayer
+                );
+
+                baseLayer.addTo(
+                    map
+                );
+
+                this.textContent =
+                    "◉ СПУТНИК";
+
+            }
+
+        }
+    );
+
+
+/* =========================================================
+   RESET
+========================================================= */
+
+document
+    .getElementById("resetBtn")
+    .addEventListener(
+        "click",
+        () => {
+
+            document
+                .getElementById(
+                    "searchInput"
+                )
+                .value = "";
+
+
+            activeFilter = "all";
+
+
+            document
+                .querySelectorAll(
+                    ".filter-btn"
+                )
+                .forEach(
+                    b =>
+                        b.classList.remove(
+                            "active"
+                        )
+                );
+
+
+            document
+                .querySelector(
+                    '[data-filter="all"]'
+                )
+                .classList.add(
+                    "active"
+                );
+
+
+            clearSelection();
+
+
+            document.getElementById(
+                "cardContainer"
+            ).innerHTML = `
+
+                <div class="empty-card">
+
+                    <div class="empty-icon">
+                        ⚡
+                    </div>
+
+                    <strong>
+                        ОБЪЕКТ НЕ ВЫБРАН
+                    </strong>
+
+                    <span>
+                        Наведите курсор на элемент сети
+                        или нажмите на объект для просмотра
+                        технической информации.
+                    </span>
+
+                </div>
+
+            `;
+
+
+            renderGeoJSON(
+                allFeatures
+            );
+
+
+            updateCounter();
+
+        }
+    );
+
+
+/* =========================================================
+   CLICK ON EMPTY MAP
+========================================================= */
+
+map.on(
+    "click",
+    function() {
+
+        clearSelection();
+
+        document.getElementById(
+            "cardContainer"
+        ).innerHTML = `
+
+            <div class="empty-card">
+
+                <div class="empty-icon">
+                    ⚡
+                </div>
+
+                <strong>
+                    ОБЪЕКТ НЕ ВЫБРАН
+                </strong>
+
+                <span>
+                    Наведите курсор на элемент сети
+                    или нажмите на объект для просмотра
+                    технической информации.
+                </span>
+
+            </div>
+
+        `;
+
+    }
+);
+
+
+/* =========================================================
+   ESCAPE HTML
+========================================================= */
+
+function escapeHTML(value) {
+
+    if (
+        value === null ||
+        value === undefined
+    ) {
+
+        return "";
+
+    }
+
+
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+}
+
+
+function escapeAttribute(value) {
+
+    return escapeHTML(value);
+
+}
+
 </script>
+
 </body>
 </html>

@@ -16,8 +16,8 @@ html,body,#map{height:100%;width:100%;margin:0}
 body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
 #map{position:absolute;inset:0}
 
-/* Настройка контролов Leaflet */
-.leaflet-top.leaflet-left { top: 140px; left: 14px; }
+/* Настройка переключателя спутника / схем в Leaflet */
+.leaflet-top.leaflet-right { top: 14px; right: 425px; }
 .leaflet-control-layers {
   background: rgba(32, 38, 45, 0.95) !important;
   color: #e9edf1 !important;
@@ -26,14 +26,14 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--tex
   box-shadow: 0 4px 18px rgba(0,0,0,.28) !important;
 }
 .leaflet-control-layers-expanded { padding: 8px 12px; }
-.leaflet-control-layers label { margin: 5px 0; font-size: 12px; }
+.leaflet-control-layers label { margin: 5px 0; font-size: 12px; cursor: pointer; }
 .leaflet-control-attribution { background: rgba(20,24,28,.82) !important; color: #aeb8c2; }
 .leaflet-control-attribution a { color: #7fc7ff; }
 
 /* Шапка сайта */
 .topbar {
   position: absolute; z-index: 1000;
-  left: 14px; top: 14px; right: 430px;
+  left: 14px; top: 14px; right: 520px;
   height: 52px; display: flex; align-items: center; gap: 12px;
   padding: 8px 14px; background: rgba(25,30,35,.95);
   border: 1px solid var(--border); border-radius: 7px;
@@ -108,20 +108,24 @@ td:last-child { font-weight: 600; color: #f1f4f7; word-break: break-word; }
 
 .close { float: right; background: none; border: 0; color: #9da8b2; font-size: 20px; cursor: pointer; }
 
-/* Легенда */
+/* Легенда и Фильтры с галочками */
 .legend {
   position: absolute; z-index: 1000; bottom: 18px; left: 14px;
   background: rgba(25,30,35,.94); border: 1px solid var(--border);
   border-radius: 6px; padding: 10px 12px; font-size: 11px; box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  user-select: none;
 }
-.legend-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
-.sw { width: 28px; height: 4px; border-radius: 3px; }
-.node { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; }
+.legend-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid #333c46; padding-bottom: 4px; }
+.legend-header span { font-weight: 700; color: #fff; }
+.legend-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; cursor: pointer; }
+.legend-row input[type="checkbox"] { cursor: pointer; accent-color: var(--accent); }
+.sw { width: 24px; height: 4px; border-radius: 3px; }
+.node { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid #fff; }
 
 /* Фокус */
 .focus-note {
   position: absolute; z-index: 1000;
-  top: 14px; right: 425px;
+  top: 74px; right: 425px;
   background: rgba(25,30,35,.94); border: 1px solid var(--border);
   padding: 8px 12px; border-radius: 6px; color: #cbd3db; font-size: 11px;
   font-weight: 600; display: none; box-shadow: 0 4px 16px rgba(0,0,0,.25);
@@ -131,6 +135,7 @@ td:last-child { font-weight: 600; color: #f1f4f7; word-break: break-word; }
   .sidebar { width: 340px; }
   .topbar { right: 355px; }
   .focus-note { right: 355px; }
+  .leaflet-top.leaflet-right { right: 355px; }
 }
 </style>
 </head>
@@ -173,15 +178,35 @@ td:last-child { font-weight: 600; color: #f1f4f7; word-break: break-word; }
   </div>
 </aside>
 
+<!-- Легенда с чекбоксами включения/выключения слоев -->
 <div class="legend">
-  <div style="font-weight:700;margin-bottom:6px">КЛАСС НАПРЯЖЕНИЯ</div>
-  <div class="legend-row"><span class="sw" style="background:#ff3b30;height:5px"></span> 110 кВ</div>
-  <div class="legend-row"><span class="sw" style="background:#ff9f43;height:4px"></span> 35 кВ</div>
-  <div class="legend-row"><span class="sw" style="background:#36a8ff;height:4px"></span> 10(6) кВ</div>
-  <div class="legend-row"><span class="sw" style="background:#b57cff;height:3px"></span> 0,4 кВ</div>
-  <div class="legend-row"><span class="node" style="background:#e34b4b"></span> ПС / РП</div>
-  <div class="legend-row"><span class="node" style="background:#ffd34d"></span> ТП / КТП</div>
-  <div class="legend-row"><span class="node" style="background:#48d597"></span> СЭС / прочее</div>
+  <div class="legend-header">
+    <span>КЛАСС НАПРЯЖЕНИЯ</span>
+  </div>
+  <label class="legend-row">
+    <input type="checkbox" data-voltage="110" checked>
+    <span class="sw" style="background:#ff3b30;height:5px"></span> 110 кВ
+  </label>
+  <label class="legend-row">
+    <input type="checkbox" data-voltage="35" checked>
+    <span class="sw" style="background:#ff9f43;height:4px"></span> 35 кВ
+  </label>
+  <label class="legend-row">
+    <input type="checkbox" data-voltage="10" checked>
+    <span class="sw" style="background:#36a8ff;height:4px"></span> 10(6) кВ
+  </label>
+  <label class="legend-row">
+    <input type="checkbox" data-voltage="0.4" checked>
+    <span class="sw" style="background:#b57cff;height:3px"></span> 0,4 кВ
+  </label>
+  <label class="legend-row">
+    <input type="checkbox" data-voltage="substation" checked>
+    <span class="node" style="background:#e34b4b"></span> ПС / РП
+  </label>
+  <label class="legend-row">
+    <input type="checkbox" data-voltage="tp" checked>
+    <span class="node" style="background:#ffd34d"></span> ТП / КТП
+  </label>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -192,33 +217,54 @@ const layers = new Map();
 const objects = new Map();
 let selectedId = null;
 
+// Состояние фильтров (что сейчас включено/выключено)
+const filters = {
+  "110": true,
+  "35": true,
+  "10": true,
+  "0.4": true,
+  "substation": true,
+  "tp": true
+};
+
 const map = L.map("map", {zoomControl: true, preferCanvas: true}).setView([44.18, 66.73], 14);
+
+// Подключение подложек карт (Спутник, Стандарт, Гибрид)
 const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 20, attribution: "© OpenStreetMap"});
 const esri = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {maxZoom: 20, attribution: "© Esri"});
 const labels = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {maxZoom: 20, attribution: "© CARTO"});
 
 osm.addTo(map);
 
+// Меню выбора спутник / схема (справа вверху)
 L.control.layers(
   {"Стандартная схема": osm, "Спутник": esri, "Гибрид": L.layerGroup([esri, labels])},
   null,
-  {collapsed: true, position: "topright"}
+  {collapsed: false, position: "topright"}
 ).addTo(map);
 
-function objectIs04(o) {
-  if (!o) return false;
+function getVoltageCategory(o) {
   const t = String(o.type || o.object_type || "").toLowerCase();
   const v = String(o.voltage || "").toLowerCase();
-  return t === "line04" || t === "input04" || (t.includes("line") && (v.includes("0.4") || v.includes("0,4")));
+
+  if (t === "substation" || t === "rp") return "substation";
+  if (t === "tp" || t === "ktp" || t === "transformer") return "tp";
+  if (t === "line04" || t === "input04" || v.includes("0.4") || v.includes("0,4")) return "0.4";
+  if (t === "line110" || v.includes("110")) return "110";
+  if (t === "line35" || v.includes("35")) return "35";
+  return "10"; // 10(6) кВ по умолчанию
+}
+
+function objectIs04(o) {
+  return getVoltageCategory(o) === "0.4";
 }
 
 function getNodeRadius(o, zoom) {
   const z = zoom || map.getZoom();
   let base = 6;
-  const t = String(o.type || o.object_type || "").toLowerCase();
-  if (t === "substation") base = 11;
-  else if (t === "rp") base = 10;
-  else if (t === "tp" || t === "ktp" || t === "transformer") base = 8;
+  const cat = getVoltageCategory(o);
+  if (cat === "substation") base = 11;
+  else if (cat === "tp") base = 8;
   
   if (z <= 11) return Math.max(3, base - 4.5);
   if (z === 12) return Math.max(3, base - 3.5);
@@ -229,21 +275,15 @@ function getNodeRadius(o, zoom) {
 }
 
 function styleForObject(o) {
-  const is04 = objectIs04(o);
-  if (is04) return {color: "#b57cff", weight: 3, opacity: 0.95, dashArray: "6 5"};
-  
-  const t = String(o.type || o.object_type || "").toLowerCase();
-  switch (t) {
+  const cat = getVoltageCategory(o);
+  switch (cat) {
     case "substation": return {color: "#e34b4b", fillColor: "#e34b4b", radius: getNodeRadius(o), weight: 3};
-    case "rp": return {color: "#ff7b45", fillColor: "#ff7b45", radius: getNodeRadius(o), weight: 3};
-    case "tp":
-    case "ktp":
-    case "transformer": return {color: "#ffd34d", fillColor: "#ffd34d", radius: getNodeRadius(o), weight: 2};
-    case "line110": return {color: "#ff3b30", weight: 6, opacity: .95};
-    case "line35": return {color: "#ff9f43", weight: 5, opacity: .95};
-    case "feeder":
-    case "line10": return {color: "#36a8ff", weight: 5, opacity: .95};
-    default: return {color: "#ffd34d", fillColor: "#ffd34d", radius: getNodeRadius(o), weight: 2};
+    case "tp": return {color: "#ffd34d", fillColor: "#ffd34d", radius: getNodeRadius(o), weight: 2};
+    case "110": return {color: "#ff3b30", weight: 6, opacity: .95};
+    case "35": return {color: "#ff9f43", weight: 5, opacity: .95};
+    case "10": return {color: "#36a8ff", weight: 5, opacity: .95};
+    case "0.4": return {color: "#b57cff", weight: 3, opacity: 0.95, dashArray: "6 5"};
+    default: return {color: "#36a8ff", weight: 3, opacity: 0.95};
   }
 }
 
@@ -303,25 +343,44 @@ function renderGeoJSON() {
   }
 }
 
+// Применение фильтров из легенды
 function refreshAll() {
   DATA.forEach(o => {
     const l = layers.get(o.id);
     if (!l) return;
 
-    const s = styleForObject(o);
-    const isSelected = selectedId === o.id;
+    const cat = getVoltageCategory(o);
+    const isVisible = filters[cat] !== false;
 
-    if (l.setStyle) {
-      l.setStyle({
-        opacity: isSelected ? 1 : (selectedId ? 0.35 : 0.9),
-        weight: isSelected ? (s.weight || 2) + 2 : s.weight
-      });
-      if (o.geometry && o.geometry.type === "Point" && l.setRadius) {
-        l.setRadius(isSelected ? getNodeRadius(o) + 4 : getNodeRadius(o));
+    if (isVisible) {
+      if (!map.hasLayer(l)) l.addTo(map);
+
+      const s = styleForObject(o);
+      const isSelected = selectedId === o.id;
+
+      if (l.setStyle) {
+        l.setStyle({
+          opacity: isSelected ? 1 : (selectedId ? 0.35 : 0.9),
+          weight: isSelected ? (s.weight || 2) + 2 : s.weight
+        });
+        if (o.geometry && o.geometry.type === "Point" && l.setRadius) {
+          l.setRadius(isSelected ? getNodeRadius(o) + 4 : getNodeRadius(o));
+        }
       }
+    } else {
+      if (map.hasLayer(l)) map.removeLayer(l);
     }
   });
 }
+
+// Обработчик клика по галочкам в легенде
+document.querySelectorAll('.legend input[type="checkbox"]').forEach(chk => {
+  chk.addEventListener('change', (e) => {
+    const v = e.target.dataset.voltage;
+    filters[v] = e.target.checked;
+    refreshAll();
+  });
+});
 
 function selectObject(id) {
   const o = objects.get(id);
@@ -331,7 +390,7 @@ function selectObject(id) {
   refreshAll();
 
   const layer = layers.get(id);
-  if (layer) {
+  if (layer && map.hasLayer(layer)) {
     const b = layer.getBounds ? layer.getBounds() : layer.getLatLng ? L.latLngBounds([layer.getLatLng()]) : null;
     if (b && b.isValid()) map.fitBounds(b.pad(.6), {maxZoom: 17});
   }
@@ -360,122 +419,21 @@ function showCard(o) {
     ["ID", o.id],
     ["Тип объекта", o.object_type || o.type || "—"],
     ["Напряжение", o.voltage || "—"],
-    ["Год ввода", o.year || "—"],
-    ["Балансовая принадлежность", o.owner || "—"],
-    ["Марка провода/кабеля", o.wire_type || "—"],
     ["Запитано от", parent ? parent.name : (o.fed_from || "—")],
-    ["Родительский объект", parent ? parent.name : "—"],
     ["Установленная мощность", o.power_kva ? o.power_kva + " кВА" : "—"],
-    ["Зав./Инв. №", o.inv_num || "—"],
     ["Протяженность", o.length ? o.length + " км" : "—"],
     ["Описание", o.description || "—"]
   ];
   document.getElementById("attrs").innerHTML = rows.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join("");
-
-  const links = Array.isArray(o.links) ? o.links : [];
-  document.getElementById("links").innerHTML = links.length
-    ? links.map(x => {
-      const label = x.name || x.title || "Внешняя ссылка";
-      const url = x.url || x.href || "";
-      return url ? `<a class="link-btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><span>↗</span>${esc(label)}</a>` : "";
-    }).join("")
-    : '<div style="color:#8f9aa5;font-size:12px">Нет внешних ссылок.</div>';
-
-  renderRelatedList(o);
-}
-
-function renderRelatedList(o) {
-  const relContainer = document.getElementById("relatedList");
-  const relObjects = [];
-
-  if (o.parent_id && objects.has(o.parent_id)) {
-    const parentObj = objects.get(o.parent_id);
-    relObjects.push({ ...parentObj, relType: "Питающий объект" });
-  }
-
-  DATA.forEach(item => {
-    if (item.parent_id === o.id) {
-      relObjects.push({ ...item, relType: "Отходящий элемент" });
-    }
-  });
-
-  if (!relObjects.length) {
-    relContainer.innerHTML = '<div style="color:#8f9aa5;font-size:12px">Нет связанных элементов.</div>';
-    return;
-  }
-
-  relContainer.innerHTML = relObjects.map(item => `
-    <div class="related-item" data-id="${esc(item.id)}">
-      <div>
-        <div class="rel-title">${esc(item.name)}</div>
-        <div style="font-size:10px;color:var(--muted);">${esc(item.relType)}</div>
-      </div>
-      <div class="rel-badge">${esc(item.voltage || item.type || "Узел")}</div>
-    </div>
-  `).join("");
-
-  relContainer.querySelectorAll(".related-item").forEach(el => {
-    el.onclick = () => selectObject(el.dataset.id);
-  });
 }
 
 function clearCard() {
   document.getElementById("objectTitle").textContent = "Объект не выбран";
   document.getElementById("objectSubtitle").textContent = "Кликните объект на карте";
   document.getElementById("attrs").innerHTML = '<tr><td>Состояние</td><td>Ожидание выбора</td></tr>';
-  document.getElementById("links").innerHTML = '<div style="color:#8f9aa5;font-size:12px">Нет выбранного объекта.</div>';
-  document.getElementById("relatedList").innerHTML = '<div style="color:#8f9aa5;font-size:12px">Нет связанных элементов.</div>';
 }
-
-function exportToCSV() {
-  let exportData = DATA;
-  let filename = "reestr_energoobektov_shieli.csv";
-
-  if (selectedId && objects.has(selectedId)) {
-    const cur = objects.get(selectedId);
-    filename = `obekt_${cur.id}_${cur.name.replace(/[^a-zA-Z0-9а-яА-Я]/g, "_")}.csv`;
-    exportData = DATA.filter(item => item.id === selectedId || item.parent_id === selectedId || item.id === cur.parent_id);
-  }
-
-  const headers = ["ID", "Наименование", "Тип объекта", "Класс напряжения", "Мощность (кВА)", "ID родительского объекта", "Протяженность", "Описание"];
-  const csvRows = [headers.join(";")];
-
-  exportData.forEach(item => {
-    const row = [
-      item.id || "",
-      `"${(item.name || "").replace(/"/g, '""')}"`,
-      `"${(item.type || item.object_type || "").replace(/"/g, '""')}"`,
-      `"${(item.voltage || "").replace(/"/g, '""')}"`,
-      `"${(item.power_kva || "").replace(/"/g, '""')}"`,
-      item.parent_id || "",
-      `"${(item.length || "").replace(/"/g, '""')}"`,
-      `"${(item.description || "").replace(/"/g, '""')}"`
-    ];
-    csvRows.push(row.join(";"));
-  });
-
-  const blob = new Blob(["\uFEFF" + csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.setAttribute("href", url);
-  link.setAttribute("download", filename);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-document.getElementById("exportCsvBtn").onclick = exportToCSV;
 
 function esc(v) { return String(v ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[m])); }
-
-map.on("zoomend", () => {
-  DATA.forEach(o => {
-    if (o.geometry && o.geometry.type === "Point") {
-      const l = layers.get(o.id);
-      if (l && l.setRadius) l.setRadius(selectedId === o.id ? getNodeRadius(o) + 4 : getNodeRadius(o));
-    }
-  });
-});
 
 loadGeoJSON().catch(err => {
   console.error(err);

@@ -1,32 +1,58 @@
-// Находим, относится ли линия 0,4 кВ к выбранной ТП
-function isLineConnectedToTp(lineObj, tpObj) {
-  if (!lineObj || !tpObj) return false;
+// Словарная связка для линий без parent_id в GeoJSON
+const EXPLICIT_CONNECTIONS = {
+  // Имя или ID родителя (ПС / РП) -> массив названий/частей названий линий
+  "пс «шиели»": [
+    "кызылту",
+    "аэропорт",
+    "райцентр",
+    "залинейный",
+    "шиелы от пс \"алмалы\"",
+    "яч-13",
+    "црп ввод-1",
+    "уп",
+    "л-95",
+    "л-36",
+    "35-кв",
+    "вл-110 кв"
+  ]
+  // Сюда же сможем добавить другие ПС и РП, если понадобится:
+  // "пс «алмалы»": ["линия1", "линия2"]
+};
 
-  const tpName = String(tpObj.name || "").toLowerCase().trim();
-  const tpId = String(tpObj.id || "").toLowerCase().trim();
-  
-  // Извлекаем чистый номер ТП (например, из "ТП-194" получаем "194")
-  const tpNumMatch = tpName.match(/\d+/);
+// Проверка связи объекта (линии/фидера) с выбранным родителем (ПС/РП/ТП)
+function isLineConnectedToParent(childObj, parentObj) {
+  if (!childObj || !parentObj) return false;
+
+  const parentName = String(parentObj.name || "").toLowerCase().trim();
+  const parentId = String(parentObj.id || "").toLowerCase().trim();
+  const childName = String(childObj.name || "").toLowerCase().trim();
+  const pId = String(childObj.parent_id || "").toLowerCase().trim();
+  const fedFrom = String(childObj.fed_from || "").toLowerCase().trim();
+
+  // 1. Проверка по полю parent_id или fed_from
+  if (pId && (pId === parentId || pId === parentName)) return true;
+  if (fedFrom && (fedFrom === parentId || fedFrom === parentName)) return true;
+
+  // 2. Проверка по словарю EXPLICIT_CONNECTIONS (для ПС "Шиели" и других)
+  for (const [pKey, childKeywords] of Object.entries(EXPLICIT_CONNECTIONS)) {
+    if (parentName.includes(pKey) || parentId.includes(pKey)) {
+      if (childKeywords.some(keyword => childName.includes(keyword))) {
+        return true;
+      }
+    }
+  }
+
+  // 3. Проверка для ТП 0.4 кВ по номеру (например, ТП-194 -> ВЛ-0.4кВ ТП-194)
+  const tpNumMatch = parentName.match(/\d+/);
   const tpNum = tpNumMatch ? tpNumMatch[0] : null;
-
-  const pId = String(lineObj.parent_id || "").toLowerCase();
-  const fedFrom = String(lineObj.fed_from || "").toLowerCase();
-  const lineName = String(lineObj.name || "").toLowerCase();
-
-  // 1. Прямая проверка по ID или parent_id
-  if (pId && (pId === tpId || pId === tpName)) return true;
-  if (fedFrom && (fedFrom === tpId || fedFrom === tpName)) return true;
-
-  // 2. Проверка по совпадению номера/имени ТП в названии линии
-  if (lineName.includes(tpName)) return true;
-  if (tpNum && (lineName.includes("тп-" + tpNum) || lineName.includes("тп " + tpNum) || lineName.includes("тп" + tpNum))) return true;
+  if (childName.includes(parentName)) return true;
+  if (tpNum && (childName.includes("тп-" + tpNum) || childName.includes("тп " + tpNum) || childName.includes("тп" + tpNum))) return true;
 
   return false;
 }
 
 function refreshAll() {
   const selectedObj = selectedId ? objects.get(selectedId) : null;
-  const isTpSelected = selectedObj && ["tp", "ktp", "transformer"].includes(getVoltageCategory(selectedObj));
 
   DATA.forEach(o => {
     const l = layers.get(o.id);
@@ -40,27 +66,27 @@ function refreshAll() {
 
       const s = styleForObject(o);
       const isSelected = selectedId === o.id;
-      
-      // Проверяем, является ли эта линия 0.4 кВ "родной" для выбранной ТП
-      const isConnectedLine = isTpSelected && cat === "0.4" && isLineConnectedToTp(o, selectedObj);
+
+      // Проверяем, привязана ли эта линия к выбранной ПС / РП / ТП
+      const isConnectedLine = selectedObj && isLineConnectedToParent(o, selectedObj);
 
       if (l.setStyle) {
         if (isSelected || isConnectedLine) {
-          // Выделяем выбранный объект и его линии 0.4 кВ
+          // Подсвечиваем выбранный объект и все его линии
           l.setStyle({
             opacity: 1,
-            color: isConnectedLine ? "#d63031" : s.color, // Подсвечиваем линии ТП красным/ярким цветом
+            color: isConnectedLine ? "#ff3838" : s.color, // Подсветка отходящих линий ярким цветом
             weight: (s.weight || 2) + 3
           });
         } else if (selectedId) {
-          // Приглушаем остальные объекты при активном фокусе
+          // Приглушаем остальные объекты
           l.setStyle({
-            opacity: 0.25,
+            opacity: 0.2,
             color: s.color,
             weight: s.weight
           });
         } else {
-          // Стандартный вид
+          // Обычный режим отображения
           l.setStyle({
             opacity: 0.9,
             color: s.color,

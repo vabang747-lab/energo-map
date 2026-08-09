@@ -41,7 +41,7 @@ body.light-theme .leaflet-control-layers { background: rgba(255, 255, 255, 0.95)
 /* Шапка сайта */
 .topbar {
   position: absolute; z-index: 1000;
-  left: 14px; top: 14px; right: 520px;
+  left: 14px; top: 14px; right: 425px;
   height: 52px; display: flex; align-items: center; gap: 10px;
   padding: 8px 14px; background: rgba(25,30,35,.95);
   border: 1px solid var(--border); border-radius: 7px;
@@ -103,6 +103,14 @@ td:last-child { font-weight: 600; color: var(--text); word-break: break-word; }
 
 .close { float: right; background: none; border: 0; color: var(--muted); font-size: 20px; cursor: pointer; }
 
+.related-list { list-style: none; padding: 0; margin: 0; }
+.related-item {
+  padding: 6px 8px; border-radius: 5px; font-size: 12px; background: var(--panel2);
+  border: 1px solid var(--border); margin-bottom: 5px; cursor: pointer; display: flex;
+  justify-content: space-between; align-items: center; transition: background .15s;
+}
+.related-item:hover { background: var(--border); color: var(--accent); }
+
 /* Легенда и Фильтры */
 .legend {
   position: absolute; z-index: 1000; bottom: 18px; left: 14px;
@@ -151,10 +159,10 @@ body.light-theme .focus-note { background: rgba(255,255,255,.94); }
 <div id="map"></div>
 
 <div class="topbar">
-  <div class="brand">ЭНЕРГОУЗЕЛ ШИЕЛИ / ДИСПЕТЧЕРСКАЯ ГИС</div>
+  <div class="brand">ЭНЕРГОУЗЕЛ ШИЕЛИ / ГИС</div>
+  <button class="btn-ui" id="fitAllBtn" title="Сбросить масштаб и показать весь район">🌐 Весь район</button>
   <button class="btn-ui" id="measureBtn" title="Включить инструмент измерения протяженности">📏 Линейка</button>
   <button class="btn-ui" id="themeBtn" title="Переключить тему интерфейса">🌙 Тема</button>
-  <button class="btn-ui" id="exportCsvBtn" title="Экспортировать данные в Excel CSV">📊 Скачать CSV</button>
   <div class="status"><span class="dot" id="statusDot"></span> <span id="statusText">Загрузка данных...</span></div>
 </div>
 
@@ -177,6 +185,10 @@ body.light-theme .focus-note { background: rgba(255,255,255,.94); }
     <div class="section">
       <h3>Параметры</h3>
       <table id="attrs"><tr><td>Состояние</td><td>Ожидание выбора</td></tr></table>
+    </div>
+    <div class="section" id="relatedSection" style="display:none;">
+      <h3>Связанные объекты (сети/линии)</h3>
+      <ul class="related-list" id="relatedList"></ul>
     </div>
   </div>
 </aside>
@@ -259,6 +271,8 @@ L.control.layers(
   {collapsed: false, position: "topright"}
 ).addTo(map);
 
+L.control.scale({ imperial: false, metric: true, position: "bottomright" }).addTo(map);
+
 function getVoltageCategory(o) {
   const t = String(o.type || o.object_type || "").toLowerCase();
   const v = String(o.voltage || "").toLowerCase();
@@ -318,17 +332,30 @@ function makeFeatureLayer(o) {
     L.DomEvent.stopPropagation(e); 
     selectObject(o.id); 
   });
+
+  /* Подсветка при наведении мыши (Hover Effect) */
+  layer.on("mouseover", () => {
+    if (selectedId !== o.id && layer.setStyle) {
+      layer.setStyle({ weight: (s.weight || 2) + 2, opacity: 1 });
+    }
+  });
+
+  layer.on("mouseout", () => {
+    if (selectedId !== o.id) {
+      refreshAll();
+    }
+  });
+
   layer.bindTooltip(o.name, { sticky: true, opacity: .95 });
   return layer;
 }
 
-/* Исправленная функция связи */
+/* Строгая функция привязки линий к узлу */
 function isLineConnectedToParent(childObj, parentObj) {
   if (!childObj || !parentObj) return false;
   if (childObj.id === parentObj.id) return false;
 
   const parentCat = getVoltageCategory(parentObj);
-  // Подсвечивать отходящие линии нужно ТОЛЬКО если кликнули на узловой объект (ПС / РП / ТП)
   if (parentCat !== "substation" && parentCat !== "tp") return false;
 
   const parentName = String(parentObj.name || "").toLowerCase().trim();
@@ -341,7 +368,7 @@ function isLineConnectedToParent(childObj, parentObj) {
   if (pId && (pId === parentId || pId === parentName)) return true;
   if (fedFrom && (fedFrom === parentId || fedFrom === parentName)) return true;
 
-  // 2. Проверка по жесткому словарю EXPLICIT_CONNECTIONS (для ПС)
+  // 2. Проверка по жесткому словарю EXPLICIT_CONNECTIONS
   for (const [pKey, childKeywords] of Object.entries(EXPLICIT_CONNECTIONS)) {
     if (parentName.includes(pKey) || parentId.includes(pKey)) {
       if (childKeywords.some(keyword => childName.includes(keyword))) {
@@ -350,7 +377,7 @@ function isLineConnectedToParent(childObj, parentObj) {
     }
   }
 
-  // 3. Проверка для линий 0,4 кВ и ТП (например ТП-194 и ВЛ-0.4кВ ТП-194)
+  // 3. Проверка для линий 0,4 кВ и ТП
   if (parentCat === "tp") {
     const tpNumMatch = parentName.match(/\d+/);
     if (tpNumMatch) {
@@ -406,12 +433,21 @@ function renderGeoJSON() {
     layer.addTo(map);
   });
 
+  fitAll();
+}
+
+function fitAll() {
   const allLayers = Array.from(layers.values());
   if (allLayers.length) {
     const group = L.featureGroup(allLayers);
     if (group.getBounds().isValid()) map.fitBounds(group.getBounds().pad(.05));
   }
 }
+
+document.getElementById("fitAllBtn").onclick = () => {
+  resetSelection();
+  fitAll();
+};
 
 function refreshAll() {
   const selectedObj = selectedId ? objects.get(selectedId) : null;
@@ -461,7 +497,7 @@ function refreshAll() {
   });
 }
 
-/* Интерактивный Поиск с автокомплитом */
+/* Поиск */
 const searchInput = document.getElementById("searchInput");
 const searchResults = document.getElementById("searchResults");
 
@@ -497,7 +533,18 @@ searchInput.addEventListener("input", (e) => {
   });
 });
 
-/* Фильтры и свертывание легенды */
+/* Клавиша ESC для отмены и сброса */
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    resetSelection();
+    searchResults.style.display = "none";
+    if (isMeasuring) {
+      measureBtn.click();
+    }
+  }
+});
+
+/* Легенда */
 document.querySelectorAll('.legend input[type="checkbox"]').forEach(chk => {
   chk.addEventListener('change', (e) => {
     const v = e.target.dataset.voltage;
@@ -516,7 +563,7 @@ legendToggle.onclick = () => {
   legendToggle.textContent = legendCollapsed ? "+" : "—";
 };
 
-/* Инструмент линейки (измерение расстояния) */
+/* Линейка */
 let isMeasuring = false;
 let measurePoints = [];
 let measurePolyline = null;
@@ -571,7 +618,7 @@ map.on("click", (e) => {
   measureDist.textContent = totalDist > 1000 ? (totalDist / 1000).toFixed(2) + " км" : Math.round(totalDist) + " м";
 });
 
-/* Переключение темы */
+/* Тема */
 const themeBtn = document.getElementById("themeBtn");
 let isLightTheme = false;
 
@@ -615,27 +662,83 @@ function resetSelection() {
 
 document.getElementById("closePanel").onclick = resetSelection;
 
+/* Полная функция карточки с координатами и восстановленным блоком связанных объектов */
 function showCard(o) {
   document.getElementById("objectTitle").textContent = o.name;
   document.getElementById("objectSubtitle").textContent = (o.object_type || o.type || "ОБЪЕКТ").toUpperCase();
   
   const parent = o.parent_id ? objects.get(o.parent_id) : null;
+
+  // Формируем координаты для копирования
+  let coordsText = "—";
+  if (o.geometry) {
+    if (o.geometry.type === "Point") {
+      const [lng, lat] = o.geometry.coordinates;
+      coordsText = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    } else if (o.geometry.coordinates && o.geometry.coordinates.length > 0) {
+      const firstPt = o.geometry.type === "LineString" ? o.geometry.coordinates[0] : o.geometry.coordinates[0][0];
+      coordsText = `${firstPt[1].toFixed(6)}, ${firstPt[0].toFixed(6)}`;
+    }
+  }
+
+  const copyBtn = coordsText !== "—" 
+    ? `<button onclick="navigator.clipboard.writeText('${coordsText}'); alert('Координаты скопированы!');" style="cursor:pointer;padding:1px 5px;font-size:10px;margin-left:6px;border:1px solid var(--border);border-radius:3px;background:var(--panel);">📋 Копировать</button>` 
+    : '';
+
+  // Расчет общей протяженности отходящих линий
+  let totalConnectedLength = 0;
+  const connectedObjects = [];
+
+  DATA.forEach(child => {
+    if (isLineConnectedToParent(child, o)) {
+      connectedObjects.push(child);
+      if (child.length) {
+        totalConnectedLength += parseFloat(child.length) || 0;
+      }
+    }
+  });
+
   const rows = [
     ["ID", o.id],
     ["Тип объекта", o.object_type || o.type || "—"],
     ["Напряжение", o.voltage || "—"],
     ["Запитано от", parent ? parent.name : (o.fed_from || "—")],
-    ["Установленная мощность", o.power_kva ? o.power_kva + " кВА" : "—"],
-    ["Протяженность", o.length ? o.length + " км" : "—"],
+    ["Мощность", o.power_kva ? o.power_kva + " кВА" : "—"],
+    ["Длина объекта", o.length ? o.length + " км" : "—"],
+    ["Координаты", coordsText + copyBtn],
     ["Описание", o.description || "—"]
   ];
-  document.getElementById("attrs").innerHTML = rows.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join("");
+
+  if (totalConnectedLength > 0) {
+    rows.push(["Суммарная длина ВЛ", totalConnectedLength.toFixed(2) + " км"]);
+  }
+
+  document.getElementById("attrs").innerHTML = rows.map(r => `<tr><td>${esc(r[0])}</td><td>${r[1]}</td></tr>`).join("");
+
+  // ВОССТАНОВЛЕНИЕ: Заполнение блока связанных объектов
+  const relatedSec = document.getElementById("relatedSection");
+  const relatedList = document.getElementById("relatedList");
+
+  if (connectedObjects.length > 0) {
+    relatedSec.style.display = "block";
+    relatedList.innerHTML = connectedObjects.map(c => `
+      <li class="related-item" onclick="selectObject('${esc(c.id)}')">
+        <span>${esc(c.name)}</span>
+        <span class="result-type">${esc(c.voltage || "0.4 кВ")}</span>
+      </li>
+    `).join("");
+  } else {
+    relatedSec.style.display = "none";
+    relatedList.innerHTML = "";
+  }
 }
 
 function clearCard() {
   document.getElementById("objectTitle").textContent = "Объект не выбран";
   document.getElementById("objectSubtitle").textContent = "Кликните объект на карте";
   document.getElementById("attrs").innerHTML = '<tr><td>Состояние</td><td>Ожидание выбора</td></tr>';
+  document.getElementById("relatedSection").style.display = "none";
+  document.getElementById("relatedList").innerHTML = "";
 }
 
 function esc(v) { return String(v ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[m])); }

@@ -3,21 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ГИС Диспетчер — Свечение и Подсветка Объектов</title>
+    <title>ГИС Диспетчер Энергосистемы — Полный Интерактивный Модуль</title>
     
     <!-- Leaflet CSS & JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Turf.js для пространственного анализа и геометрии -->
+    <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
 
     <style>
         :root {
-            --bg-dark: #0b0f19;
-            --panel-bg: rgba(15, 23, 42, 0.88);
-            --border-color: rgba(255, 255, 255, 0.12);
-            --accent-glow: #00f2fe;
+            --bg-dark: #080c14;
+            --panel-bg: rgba(15, 23, 42, 0.92);
+            --panel-border: rgba(255, 255, 255, 0.12);
+            --accent-cyan: #00f2fe;
             --accent-blue: #3b82f6;
             --accent-green: #10b981;
             --accent-red: #ef4444;
+            --accent-gold: #f59e0b;
             --text-main: #f8fafc;
             --text-sub: #94a3b8;
         }
@@ -25,11 +29,10 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
         body { background: var(--bg-dark); color: var(--text-main); overflow: hidden; height: 100vh; width: 100vw; }
 
-        #map { height: 100vh; width: 100vw; z-index: 1; background: #080c14; }
+        #map { height: 100vh; width: 100vw; z-index: 1; background: #05080f; }
 
-        /* ==================== СТИЛИ И АНИМАЦИИ СВЕЧЕНИЯ ==================== */
+        /* ==================== АНИМАЦИИ И СТИЛИ СВЕЧЕНИЯ (GLOW) ==================== */
 
-        /* 1. Пульсирующий неоновый ореол для точечных объектов (ТП / Опоры) */
         @keyframes pulse-glow {
             0% {
                 transform: scale(0.8);
@@ -47,293 +50,432 @@
             }
         }
 
-        .glow-point-icon {
-            background: transparent;
-            border: none;
+        @keyframes pulse-red {
+            0% {
+                transform: scale(0.8);
+                opacity: 0.9;
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8), 0 0 20px 8px rgba(239, 68, 68, 0.6);
+            }
+            70% {
+                transform: scale(1.5);
+                opacity: 0;
+                box-shadow: 0 0 0 30px rgba(239, 68, 68, 0), 0 0 40px 15px rgba(239, 68, 68, 0);
+            }
+            100% {
+                transform: scale(0.8);
+                opacity: 0;
+            }
         }
 
-        .glow-point-container {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .glow-point-icon { background: transparent; border: none; }
+        .glow-point-container { width: 100%; height: 100%; position: relative; display: flex; align-items: center; justify-content: center; }
+
+        .glow-ring-cyan {
+            position: absolute; width: 26px; height: 26px; border-radius: 50%;
+            background: rgba(0, 242, 254, 0.4); animation: pulse-glow 2s infinite cubic-bezier(0.45, 0, 0.55, 1);
+        }
+        .glow-ring-red {
+            position: absolute; width: 28px; height: 28px; border-radius: 50%;
+            background: rgba(239, 68, 68, 0.4); animation: pulse-red 1.5s infinite cubic-bezier(0.45, 0, 0.55, 1);
         }
 
-        .glow-ring {
-            position: absolute;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: rgba(0, 242, 254, 0.4);
-            animation: pulse-glow 2s infinite cubic-bezier(0.45, 0, 0.55, 1);
+        .glow-core-cyan {
+            width: 14px; height: 14px; border-radius: 50%; background: #ffffff;
+            border: 3px solid var(--accent-cyan); box-shadow: 0 0 15px var(--accent-cyan), 0 0 30px var(--accent-cyan); z-index: 2;
+        }
+        .glow-core-red {
+            width: 14px; height: 14px; border-radius: 50%; background: #ffffff;
+            border: 3px solid var(--accent-red); box-shadow: 0 0 15px var(--accent-red), 0 0 30px var(--accent-red); z-index: 2;
         }
 
-        .glow-core {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #ffffff;
-            border: 3px solid var(--accent-glow);
-            box-shadow: 0 0 15px var(--accent-glow), 0 0 30px var(--accent-glow);
-            z-index: 2;
-        }
-
-        /* 2. Свечение линий ЛЭП (SVG drop-shadow + анимация бегущих пунктиров) */
         @keyframes dash-flow {
             to { stroke-dashoffset: -20; }
         }
 
-        .glow-line-back {
-            stroke: var(--accent-glow) !important;
-            stroke-opacity: 0.8 !important;
-            filter: drop-shadow(0px 0px 8px var(--accent-glow)) drop-shadow(0px 0px 18px var(--accent-glow));
+        .glow-line-cyan {
+            stroke: var(--accent-cyan) !important; stroke-opacity: 0.85 !important;
+            filter: drop-shadow(0px 0px 8px var(--accent-cyan)) drop-shadow(0px 0px 18px var(--accent-cyan));
+        }
+        .glow-line-gold {
+            stroke: var(--accent-gold) !important; stroke-opacity: 0.85 !important;
+            filter: drop-shadow(0px 0px 8px var(--accent-gold)) drop-shadow(0px 0px 18px var(--accent-gold));
+        }
+        .glow-line-red {
+            stroke: var(--accent-red) !important; stroke-opacity: 0.9 !important;
+            filter: drop-shadow(0px 0px 10px var(--accent-red)) drop-shadow(0px 0px 22px var(--accent-red));
         }
 
         .glow-line-flow {
-            stroke: #ffffff !important;
-            stroke-dasharray: 6, 10;
-            animation: dash-flow 1s linear infinite;
+            stroke: #ffffff !important; stroke-dasharray: 6, 12; animation: dash-flow 0.9s linear infinite;
         }
 
-        /* ==================== ИНТЕРФЕЙС И ПАНЕЛИ ==================== */
+        /* ==================== ИНТЕРФЕЙС И ВЕРХНИЕ ПАНЕЛИ ==================== */
 
         .top-bar {
-            position: absolute;
-            top: 16px;
-            left: 16px;
-            z-index: 1000;
-            display: flex;
-            gap: 12px;
+            position: absolute; top: 16px; left: 16px; z-index: 1000; display: flex; gap: 12px; align-items: center;
         }
 
         .search-trigger {
-            background: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            backdrop-filter: blur(12px);
-            padding: 10px 18px;
-            border-radius: 10px;
-            color: var(--text-sub);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-            transition: all 0.25s ease;
+            background: var(--panel-bg); border: 1px solid var(--panel-border); backdrop-filter: blur(12px);
+            padding: 10px 18px; border-radius: 10px; color: var(--text-sub); cursor: pointer;
+            display: flex; align-items: center; gap: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); transition: all 0.25s ease;
         }
+        .search-trigger:hover { border-color: var(--accent-cyan); color: var(--text-main); box-shadow: 0 0 20px rgba(0, 242, 254, 0.25); }
+        .search-trigger kbd { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 11px; color: var(--text-main); }
 
-        .search-trigger:hover {
-            border-color: var(--accent-glow);
-            color: var(--text-main);
-            box-shadow: 0 0 20px rgba(0, 242, 254, 0.25);
-        }
-
+        /* Карточка аналитики и энергобаланса */
         .analytics-card {
-            position: absolute;
-            top: 16px;
-            right: 16px;
-            z-index: 1000;
-            background: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            backdrop-filter: blur(12px);
-            padding: 18px;
-            border-radius: 14px;
-            width: 320px;
-            box-shadow: 0 12px 40px rgba(0,0,0,0.5);
-            display: none; /* Показываем при клике */
+            position: absolute; top: 16px; right: 16px; z-index: 1000; background: var(--panel-bg);
+            border: 1px solid var(--panel-border); backdrop-filter: blur(12px); padding: 18px; border-radius: 14px;
+            width: 330px; box-shadow: 0 12px 40px rgba(0,0,0,0.5); display: none;
         }
-
-        .analytics-card h4 {
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: var(--accent-glow);
-            margin-bottom: 12px;
-        }
-
+        .analytics-card h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--accent-cyan); margin-bottom: 12px; }
         .metric-group { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
         .metric-value { font-weight: 600; }
-
-        .btn-reset {
-            position: absolute;
-            bottom: 24px;
-            right: 24px;
-            z-index: 1000;
-            background: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            color: var(--text-sub);
-            padding: 10px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            backdrop-filter: blur(8px);
-            transition: 0.2s;
+        
+        .status-badge {
+            display: block; padding: 6px; border-radius: 6px; font-size: 11px; font-weight: 700; text-align: center; margin-top: 10px;
         }
-        .btn-reset:hover { border-color: var(--accent-red); color: var(--accent-red); }
+        .status-normal { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border: 1px solid var(--accent-green); }
+        .status-alert { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); border: 1px solid var(--accent-red); }
+
+        /* Поисковый модуль (Spotlight Modal) */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.65);
+            backdrop-filter: blur(6px); z-index: 2000; display: none; justify-content: center; align-items: flex-start; padding-top: 10vh;
+        }
+        .search-modal {
+            background: var(--panel-bg); border: 1px solid var(--panel-border); width: 90%; max-width: 620px;
+            border-radius: 14px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+        }
+        .search-input-wrapper { display: flex; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--panel-border); }
+        .search-input-wrapper input { background: transparent; border: none; outline: none; color: #fff; font-size: 17px; width: 100%; margin-left: 12px; }
+        .search-results { max-height: 380px; overflow-y: auto; padding: 8px 0; }
+        .result-item {
+            padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.15s ease;
+        }
+        .result-item:hover { background: rgba(0, 242, 254, 0.12); }
+        .result-title { font-weight: 600; font-size: 14px; }
+        .result-sub { font-size: 12px; color: var(--text-sub); }
+
+        /* Нижний тулбар управления */
+        .bottom-actions {
+            position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 1000;
+            background: var(--panel-bg); border: 1px solid var(--panel-border); backdrop-filter: blur(12px);
+            padding: 6px 14px; border-radius: 30px; display: flex; gap: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+        }
+        .btn-action {
+            background: transparent; border: none; color: var(--text-main); padding: 8px 16px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); }
+        .btn-action.active { background: var(--accent-blue); font-weight: 600; }
+        .btn-reset-glow {
+            position: absolute; bottom: 24px; right: 24px; z-index: 1000; background: var(--panel-bg);
+            border: 1px solid var(--panel-border); color: var(--text-sub); padding: 10px 16px; border-radius: 8px;
+            cursor: pointer; backdrop-filter: blur(8px); transition: 0.2s;
+        }
+        .btn-reset-glow:hover { border-color: var(--accent-red); color: var(--accent-red); }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
 
+    <!-- Верхний поиск -->
     <div class="top-bar">
-        <div class="search-trigger" onclick="alert('Для выбора кликните на ТП или ЛЭП на карте')">
-            🔍 <span>Кликните на объект для активации свечения</span>
+        <div class="search-trigger" onclick="openSearch()">
+            🔍 <span>Быстрый поиск по объектам...</span>
+            <kbd>Ctrl K</kbd>
         </div>
     </div>
 
-    <!-- Панель информации о подсвеченном объекте -->
+    <!-- Панель анализа энергобаланса выбранного объекта -->
     <div class="analytics-card" id="analyticsCard">
-        <h4 id="objTitle">⚡ ОБЪЕКТ ВЫБРАН</h4>
+        <h4 id="cardTitle">⚡ ТРАНСФОРМАТОРНАЯ ПОДСТАНЦИЯ</h4>
         <div class="metric-group">
-            <span style="color:var(--text-sub)">Тип / Дисп. имя:</span>
-            <span class="metric-value" id="objType">ТП 10/0.4 кВ</span>
+            <span style="color:var(--text-sub)">Диспетчерское имя:</span>
+            <span class="metric-value" id="dispName">ТП-102</span>
         </div>
         <div class="metric-group">
-            <span style="color:var(--text-sub)">Нагрузка / Длина:</span>
-            <span class="metric-value" id="objParam">180 кВА</span>
+            <span style="color:var(--text-sub)">Приход (Поступление):</span>
+            <span class="metric-value" id="valIn">14 500 кВт·ч</span>
         </div>
         <div class="metric-group">
-            <span style="color:var(--text-sub)">Состояние:</span>
-            <span class="metric-value" style="color:var(--accent-green)" id="objStatus">● В норме</span>
+            <span style="color:var(--text-sub)">Расход (Отпуск):</span>
+            <span class="metric-value" id="valOut">13 820 кВт·ч</span>
+        </div>
+        <div class="metric-group">
+            <span style="color:var(--text-sub)">Фактические потери:</span>
+            <span class="metric-value" id="valLoss">680 кВт·ч (4.69%)</span>
+        </div>
+        <div id="statusBadge" class="status-badge status-normal">✅ Потери в пределах нормы</div>
+    </div>
+
+    <!-- Модальное окно глобального поиска -->
+    <div class="modal-overlay" id="searchModal" onclick="closeSearch(event)">
+        <div class="search-modal" onclick="event.stopPropagation()">
+            <div class="search-input-wrapper">
+                🔎 <input type="text" id="searchInput" placeholder="Поиск ТП, опоры, фидера или линии..." oninput="onSearchInput(this.value)">
+            </div>
+            <div class="search-results" id="searchResults">
+                <!-- Динамически заполняется скриптом -->
+            </div>
         </div>
     </div>
 
-    <button class="btn-reset" onclick="clearGlow()">✨ Сбросить подсветку</button>
+    <!-- Нижняя панель инструментов -->
+    <div class="bottom-actions">
+        <button class="btn-action" id="rulerBtn" onclick="toggleRulerMode()">📏 Линейка</button>
+        <button class="btn-action" onclick="exportCSV()">📥 Экспорт CSV</button>
+        <button class="btn-action" onclick="addInspectionMark()">📝 Акт осмотра</button>
+    </div>
+
+    <button class="btn-reset-glow" onclick="clearGlow()">✨ Снять подсветку</button>
 
     <script>
-        // Инициализация карты
-        const map = L.map('map', { zoomControl: false }).setView([44.1833, 66.7500], 15);
+        // ==================== 1. ИНИЦИАЛИЗА КАРТЫ И БАЗЫ ДАННЫХ ====================
 
-        // Картографическая подложка (Dark)
+        const map = L.map('map', { zoomControl: false }).setView([44.1833, 66.7500], 14);
+
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            subdomains: 'abcd'
+            maxZoom: 19, subdomains: 'abcd', attribution: '&copy; OpenStreetMap &copy; CARTO'
         }).addTo(map);
 
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        // Переменные для хранения текущего свечения
+        // Хранилище слоев неонового свечения
         let activeGlowLayer = null;
         let activeGlowFlowLine = null;
+        let isRulerActive = false;
+        let rulerPoints = [];
+        let rulerPolyline = null;
 
-        // Иконка пульсирующего неонового маркера
-        const glowIcon = L.divIcon({
-            className: 'glow-point-icon',
-            html: `
-                <div class="glow-point-container">
-                    <div class="glow-ring"></div>
-                    <div class="glow-core"></div>
-                </div>
-            `,
-            iconSize: [36, 36],
-            iconAnchor: [18, 18]
-        });
+        // База объектов электросети
+        const dbObjects = {
+            substations: [
+                { id: 'TP-102', name: 'ТП-102 Центр', lat: 44.1833, lng: 66.7500, type: '10/0.4 кВ', pIn: 14500, pOut: 13820, lossPct: 4.69, status: 'normal' },
+                { id: 'TP-105', name: 'ТП-105 Север', lat: 44.1890, lng: 66.7580, type: '10/0.4 кВ', pIn: 22000, pOut: 20400, lossPct: 7.27, status: 'alert' }
+            ],
+            lines: [
+                {
+                    id: 'F-10', name: 'ЛЭП 10 кВ (Фидер №10)', voltage: '10кВ',
+                    coords: [[44.1833, 66.7500], [44.1860, 66.7540], [44.1890, 66.7580]],
+                    status: 'normal'
+                },
+                {
+                    id: 'F-12', name: 'ЛЭП 10 кВ (Фидер №12 Аварийный)', voltage: '10кВ',
+                    coords: [[44.1833, 66.7500], [44.1810, 66.7420], [44.1780, 66.7380]],
+                    status: 'alert'
+                }
+            ]
+        };
 
-        // ==================== МАКЕТНЫЕ ДАННЫЕ СЕТИ ====================
+        // ==================== 2. ОТРИСОВКА БАЗОВЫХ ОБЪЕКТОВ СЕТИ ====================
 
-        // 1. Точечные объекты (Трансформаторные подстанции)
-        const tpObjects = [
-            { id: 'TP1', name: 'ТП-102 Центр', lat: 44.1833, lng: 66.7500, power: '250 кВА' },
-            { id: 'TP2', name: 'ТП-105 Север', lat: 44.1880, lng: 66.7580, power: '400 кВА' }
-        ];
-
-        // 2. Линейные объекты (ЛЭП 10 кВ)
-        const lineCoords = [
-            [44.1833, 66.7500],
-            [44.1855, 66.7535],
-            [44.1880, 66.7580]
-        ];
-
-        // Отрисовка базовой ЛЭП
-        const basePolyline = L.polyline(lineCoords, {
-            color: '#3b82f6',
-            weight: 4,
-            opacity: 0.7
-        }).addTo(map);
-
-        basePolyline.on('click', (e) => {
-            L.DomEvent.stopPropagation(e);
-            highlightLine(basePolyline, 'ЛЭП-10кВ Фидер №10', '1.25 км');
-        });
-
-        // Отрисовка базовых маркеров ТП
-        tpObjects.forEach(tp => {
+        // Отрисовка ТП
+        dbObjects.substations.forEach(tp => {
+            const markerColor = tp.status === 'alert' ? '#ef4444' : '#3b82f6';
             const marker = L.circleMarker([tp.lat, tp.lng], {
-                radius: 8,
-                fillColor: '#3b82f6',
-                color: '#ffffff',
-                weight: 2,
-                fillOpacity: 0.9
+                radius: 8, fillColor: markerColor, color: '#ffffff', weight: 2, fillOpacity: 0.9
             }).addTo(map);
 
             marker.on('click', (e) => {
                 L.DomEvent.stopPropagation(e);
-                highlightPoint([tp.lat, tp.lng], tp.name, tp.power);
+                highlightPoint([tp.lat, tp.lng], tp);
             });
         });
 
-        // ==================== ФУНКЦИИ АКТИВАЦИИ СВЕЧЕНИЯ ====================
+        // Отрисовка Линий
+        dbObjects.lines.forEach(line => {
+            const lineColor = line.status === 'alert' ? '#ef4444' : '#f59e0b';
+            const polyline = L.polyline(line.coords, {
+                color: lineColor, weight: 4, opacity: 0.75
+            }).addTo(map);
 
-        // Подсветка точечного объекта (ТП / Опора)
-        function highlightPoint(latlng, title, param) {
+            polyline.on('click', (e) => {
+                L.DomEvent.stopPropagation(e);
+                highlightLine(polyline, line);
+            });
+        });
+
+        // ==================== 3. МЕХАНИЗМЫ СВЕЧЕНИЯ (GLOW SYSTEM) ====================
+
+        function highlightPoint(latlng, tpData) {
             clearGlow();
 
-            // Создаем слой свечения поверх
-            activeGlowLayer = L.marker(latlng, { icon: glowIcon, zIndexOffset: 1000 }).addTo(map);
+            const isAlert = tpData.status === 'alert';
+            const iconClass = isAlert ? 'glow-ring-red' : 'glow-ring-cyan';
+            const coreClass = isAlert ? 'glow-core-red' : 'glow-core-cyan';
 
-            // Показываем инфо-панель
-            showPanel(title, 'Трансформаторная подстанция', param);
+            const customGlowIcon = L.divIcon({
+                className: 'glow-point-icon',
+                html: `<div class="glow-point-container"><div class="${iconClass}"></div><div class="${coreClass}"></div></div>`,
+                iconSize: [36, 36], iconAnchor: [18, 18]
+            });
 
-            // Анимированный перелет камеры
-            map.flyTo(latlng, 16, { duration: 1 });
+            activeGlowLayer = L.marker(latlng, { icon: customGlowIcon, zIndexOffset: 1000 }).addTo(map);
+            
+            updateAnalyticsPanel(tpData);
+            map.flyTo(latlng, 16, { duration: 1.2 });
         }
 
-        // Подсветка линии (ЛЭП)
-        function highlightLine(polyline, title, lengthStr) {
+        function highlightLine(polyline, lineData) {
             clearGlow();
 
             const coords = polyline.getLatLngs();
+            const glowClass = lineData.status === 'alert' ? 'glow-line-red' : 'glow-line-gold';
 
-            // 1. Нижний неоновый размытый слой
-            activeGlowLayer = L.polyline(coords, {
-                className: 'glow-line-back',
-                weight: 10
-            }).addTo(map);
+            // Вычисление длины линии через Turf.js
+            const lineGeoJSON = polyline.toGeoJSON();
+            const lengthKm = turf.length(lineGeoJSON, { units: 'kilometers' }).toFixed(2);
 
-            // 2. Верхний слой с «бегущим» пунктиром
-            activeGlowFlowLine = L.polyline(coords, {
-                className: 'glow-line-flow',
-                weight: 4
-            }).addTo(map);
+            // Нижний светящийся слой
+            activeGlowLayer = L.polyline(coords, { className: glowClass, weight: 10 }).addTo(map);
 
-            showPanel(title, 'Воздушная линия 10 кВ', lengthStr);
+            // Верхний анимированный бегущий слой
+            activeGlowFlowLine = L.polyline(coords, { className: 'glow-line-flow', weight: 4 }).addTo(map);
+
+            updateAnalyticsPanelForLine(lineData, lengthKm);
         }
 
-        // Сброс свечения
         function clearGlow() {
-            if (activeGlowLayer) {
-                map.removeLayer(activeGlowLayer);
-                activeGlowLayer = null;
-            }
-            if (activeGlowFlowLine) {
-                map.removeLayer(activeGlowFlowLine);
-                activeGlowFlowLine = null;
-            }
+            if (activeGlowLayer) { map.removeLayer(activeGlowLayer); activeGlowLayer = null; }
+            if (activeGlowFlowLine) { map.removeLayer(activeGlowFlowLine); activeGlowFlowLine = null; }
             document.getElementById('analyticsCard').style.display = 'none';
         }
 
-        function showPanel(title, type, param) {
-            document.getElementById('objTitle').innerText = '⚡ ' + title;
-            document.getElementById('objType').innerText = type;
-            document.getElementById('objParam').innerText = param;
+        // ==================== 4. ПАНЕЛЬ АНАЛИТИКИ И ЭНЕРГОБАЛАНСА ====================
+
+        function updateAnalyticsPanel(tp) {
+            document.getElementById('cardTitle').innerText = '⚡ ' + tp.name;
+            document.getElementById('dispName').innerText = tp.id;
+            document.getElementById('valIn').innerText = tp.pIn.toLocaleString() + ' кВт·ч';
+            document.getElementById('valOut').innerText = tp.pOut.toLocaleString() + ' кВт·ч';
+
+            const lossVal = tp.pIn - tp.pOut;
+            document.getElementById('valLoss').innerText = `${lossVal.toLocaleString()} кВт·ч (${tp.lossPct}%)`;
+
+            const badge = document.getElementById('statusBadge');
+            if (tp.lossPct > 5.0) {
+                badge.className = 'status-badge status-alert';
+                badge.innerText = '⚠️ Превышение нормы потерь (>5%)';
+            } else {
+                badge.className = 'status-badge status-normal';
+                badge.innerText = '✅ Потери в пределах нормы';
+            }
+
             document.getElementById('analyticsCard').style.display = 'block';
         }
 
-        // Клик по свободной карте сбрасывает свечение
-        map.on('click', () => {
-            clearGlow();
+        function updateAnalyticsPanelForLine(line, lengthKm) {
+            document.getElementById('cardTitle').innerText = '📏 ' + line.name;
+            document.getElementById('dispName').innerText = line.voltage;
+            document.getElementById('valIn').innerText = 'Длина: ' + lengthKm + ' км';
+            document.getElementById('valOut').innerText = 'Статус: ' + (line.status === 'alert' ? 'Авария' : 'В норме');
+            document.getElementById('valLoss').innerText = '---';
+
+            const badge = document.getElementById('statusBadge');
+            if (line.status === 'alert') {
+                badge.className = 'status-badge status-alert';
+                badge.innerText = '⚠️ Обнаружен аварийный участок!';
+            } else {
+                badge.className = 'status-badge status-normal';
+                badge.innerText = '✅ Линия под напряжением';
+            }
+
+            document.getElementById('analyticsCard').style.display = 'block';
+        }
+
+        // ==================== 5. ГЛОБАЛЬНЫЙ ПОИСК (SPOTLIGHT) ====================
+
+        function openSearch() {
+            document.getElementById('searchModal').style.display = 'flex';
+            document.getElementById('searchInput').focus();
+            renderSearchResults('');
+        }
+
+        function closeSearch(e) { document.getElementById('searchModal').style.display = 'none'; }
+
+        function onSearchInput(val) { renderSearchResults(val.toLowerCase()); }
+
+        function renderSearchResults(query) {
+            const container = document.getElementById('searchResults');
+            container.innerHTML = '';
+
+            dbObjects.substations.filter(s => s.name.toLowerCase().includes(query) || s.id.toLowerCase().includes(query)).forEach(s => {
+                const item = document.createElement('div');
+                item.className = 'result-item';
+                item.innerHTML = `<div><div class="result-title">${s.name}</div><div class="result-sub">${s.type} • ${s.id}</div></div><span style="color:var(--accent-cyan); font-size:12px;">Перейти ➔</span>`;
+                item.onclick = () => { closeSearch(); highlightPoint([s.lat, s.lng], s); };
+                container.appendChild(item);
+            });
+
+            dbObjects.lines.filter(l => l.name.toLowerCase().includes(query) || l.id.toLowerCase().includes(query)).forEach(l => {
+                const item = document.createElement('div');
+                item.className = 'result-item';
+                item.innerHTML = `<div><div class="result-title">${l.name}</div><div class="result-sub">Класс напряжения: ${l.voltage}</div></div><span style="color:var(--accent-cyan); font-size:12px;">Перейти ➔</span>`;
+                item.onclick = () => {
+                    closeSearch();
+                    const polyline = L.polyline(l.coords);
+                    highlightLine(polyline, l);
+                    map.flyTo(l.coords[0], 15);
+                };
+                container.appendChild(item);
+            });
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openSearch(); }
+            if (e.key === 'Escape') { closeSearch(); }
         });
+
+        // ==================== 6. ИНСТРУМЕНТЫ (ЛИНЕЙКА, ЭКСПОРТ, ЗАМЕТКИ) ====================
+
+        function toggleRulerMode() {
+            isRulerActive = !isRulerActive;
+            const btn = document.getElementById('rulerBtn');
+            if (isRulerActive) {
+                btn.classList.add('active');
+                rulerPoints = [];
+                alert('Режим линейки включен: Кликайте по карте для измерения расстояния.');
+            } else {
+                btn.classList.remove('active');
+                if (rulerPolyline) map.removeLayer(rulerPolyline);
+            }
+        }
+
+        map.on('click', (e) => {
+            if (isRulerActive) {
+                rulerPoints.push([e.latlng.lat, e.latlng.lng]);
+                if (rulerPolyline) map.removeLayer(rulerPolyline);
+
+                rulerPolyline = L.polyline(rulerPoints, { color: '#00f2fe', weight: 3, dashArray: '5, 10' }).addTo(map);
+
+                if (rulerPoints.length > 1) {
+                    const lineString = turf.lineString(rulerPoints.map(p => [p[1], p[0]]));
+                    const distKm = turf.length(lineString, { units: 'kilometers' }).toFixed(3);
+                    L.popup().setLatLng(e.latlng).setContent(`<b>Расстояние:</b> ${distKm} км`).openOn(map);
+                }
+            } else {
+                clearGlow();
+            }
+        });
+
+        function exportCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,ID,Name,Type,Status\n";
+            dbObjects.substations.forEach(s => { csvContent += `${s.id},"${s.name}",${s.type},${s.status}\n`; });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "energy_grid_export.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function addInspectionMark() {
+            alert('Кликните в любой точке карты, чтобы добавить отметку о дефекте.');
+        }
     </script>
 </body>
 </html>

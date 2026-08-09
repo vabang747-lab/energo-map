@@ -11,20 +11,28 @@
   --text:#e9edf1;--muted:#9ca7b2;--accent:#39a9ff;--danger:#ff5d5d;
   --green:#48d597;--yellow:#ffd34d;--orange:#ff9f43;
 }
+
+body.light-theme {
+  --bg:#f4f6f8;--panel:#ffffff;--panel2:#eef2f5;--border:#cfd8dc;
+  --text:#1c252e;--muted:#637381;--accent:#007bff;--danger:#e53935;
+  --green:#2e7d32;--yellow:#f57f17;--orange:#d84315;
+}
+
 *{box-sizing:border-box}
 html,body,#map{height:100%;width:100%;margin:0}
-body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);overflow:hidden;transition:background .2s,color .2s}
 #map{position:absolute;inset:0}
 
-/* Переключатель спутник / схема */
+/* Настройка контролов Leaflet */
 .leaflet-top.leaflet-right { top: 14px; right: 425px; }
 .leaflet-control-layers {
   background: rgba(32, 38, 45, 0.95) !important;
-  color: #e9edf1 !important;
+  color: var(--text) !important;
   border: 1px solid var(--border) !important;
   border-radius: 7px !important;
   box-shadow: 0 4px 18px rgba(0,0,0,.28) !important;
 }
+body.light-theme .leaflet-control-layers { background: rgba(255, 255, 255, 0.95) !important; }
 .leaflet-control-layers-expanded { padding: 8px 12px; }
 .leaflet-control-layers label { margin: 5px 0; font-size: 12px; cursor: pointer; }
 .leaflet-control-attribution { background: rgba(20,24,28,.82) !important; color: #aeb8c2; }
@@ -34,24 +42,26 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--tex
 .topbar {
   position: absolute; z-index: 1000;
   left: 14px; top: 14px; right: 520px;
-  height: 52px; display: flex; align-items: center; gap: 12px;
+  height: 52px; display: flex; align-items: center; gap: 10px;
   padding: 8px 14px; background: rgba(25,30,35,.95);
   border: 1px solid var(--border); border-radius: 7px;
   box-shadow: 0 4px 18px rgba(0,0,0,.28);
 }
+body.light-theme .topbar { background: rgba(255,255,255,.95); }
 .brand { font-weight: 700; letter-spacing: .5px; white-space: nowrap; font-size: 14px; }
 .status { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; margin-left: auto; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
 .dot.err { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
 
-/* Кнопка экспорта */
-.export-btn {
+/* Кнопки в шапке */
+.btn-ui {
   display: flex; align-items: center; gap: 6px;
-  background: #28333e; border: 1px solid #3d4c5a; color: #dce7f2;
+  background: var(--panel2); border: 1px solid var(--border); color: var(--text);
   padding: 6px 10px; border-radius: 5px; cursor: pointer;
-  font-size: 12px; font-weight: 600; transition: all .15s;
+  font-size: 12px; font-weight: 600; transition: all .15s; white-space: nowrap;
 }
-.export-btn:hover { background: #354454; border-color: var(--accent); color: #fff; }
+.btn-ui:hover { background: var(--border); color: var(--accent); }
+.btn-ui.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 /* Поиск */
 .search {
@@ -60,13 +70,15 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--tex
   background: rgba(25,30,35,.95); border: 1px solid var(--border);
   border-radius: 7px; padding: 8px; box-shadow: 0 4px 18px rgba(0,0,0,.25);
 }
+body.light-theme .search { background: rgba(255,255,255,.95); }
 .search input {
-  width: 100%; background: #15191e; border: 1px solid var(--border);
-  color: #fff; padding: 8px 10px; border-radius: 5px; outline: none; font-size: 12px;
+  width: 100%; background: var(--panel); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 10px; border-radius: 5px; outline: none; font-size: 12px;
 }
-.results { max-height: 200px; overflow: auto; margin-top: 6px; }
-.result { padding: 7px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
-.result:hover { background: #303942; }
+.results { max-height: 220px; overflow-y: auto; margin-top: 6px; display: none; }
+.result { padding: 7px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
+.result:hover { background: var(--panel2); }
+.result-type { font-size: 10px; color: var(--muted); border: 1px solid var(--border); padding: 1px 4px; border-radius: 3px; }
 
 /* Боковая панель */
 .sidebar {
@@ -75,60 +87,56 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--tex
   background: rgba(27,32,38,.97); border-left: 1px solid var(--border);
   box-shadow: -6px 0 22px rgba(0,0,0,.3); display: flex; flex-direction: column;
 }
+body.light-theme .sidebar { background: rgba(255,255,255,.97); }
 .sidebar-head { padding: 16px 18px 12px; border-bottom: 1px solid var(--border); }
 .kicker { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--accent); font-weight: 700; }
 .title { font-size: 17px; font-weight: 700; margin-top: 4px; line-height: 1.25; }
 .subtitle { font-size: 11px; color: var(--muted); margin-top: 4px; }
 .sidebar-body { padding: 14px 16px; overflow-y: auto; flex: 1; }
 .section { margin-bottom: 18px; }
-.section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #b8c1ca; margin: 0 0 8px; }
+.section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 0 0 8px; }
 
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
-td { padding: 6px 4px; border-bottom: 1px solid #333b43; vertical-align: top; }
+td { padding: 6px 4px; border-bottom: 1px solid var(--border); vertical-align: top; }
 td:first-child { color: var(--muted); width: 42%; }
-td:last-child { font-weight: 600; color: #f1f4f7; word-break: break-word; }
+td:last-child { font-weight: 600; color: var(--text); word-break: break-word; }
 
-.link-list { display: flex; flex-direction: column; gap: 6px; }
-.link-btn {
-  display: flex; align-items: center; gap: 8px; text-decoration: none;
-  color: #dfeeff; background: #29333c; border: 1px solid #3d4a55;
-  border-radius: 5px; padding: 7px 10px; font-size: 12px;
-}
-.link-btn:hover { background: #33414c; border-color: #5b6c79; }
+.close { float: right; background: none; border: 0; color: var(--muted); font-size: 20px; cursor: pointer; }
 
-.related-list { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; padding-right: 2px; }
-.related-item {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 7px 9px; background: #232b33; border: 1px solid #36424e;
-  border-radius: 5px; cursor: pointer; font-size: 12px;
-}
-.related-item:hover { background: #2f3a46; border-color: var(--accent); }
-.related-item .rel-title { font-weight: 600; color: #e1e7ed; }
-.related-item .rel-badge { font-size: 10px; padding: 2px 6px; border-radius: 3px; background: #171c22; color: var(--muted); border: 1px solid #36424e; }
-
-.close { float: right; background: none; border: 0; color: #9da8b2; font-size: 20px; cursor: pointer; }
-
-/* Легенда и Фильтры с галочками */
+/* Легенда и Фильтры */
 .legend {
   position: absolute; z-index: 1000; bottom: 18px; left: 14px;
   background: rgba(25,30,35,.94); border: 1px solid var(--border);
   border-radius: 6px; padding: 10px 12px; font-size: 11px; box-shadow: 0 4px 16px rgba(0,0,0,.25);
-  user-select: none;
+  user-select: none; width: 230px; transition: all .2s;
 }
-.legend-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid #333c46; padding-bottom: 4px; }
-.legend-header span { font-weight: 700; color: #fff; }
-.legend-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; cursor: pointer; }
+body.light-theme .legend { background: rgba(255,255,255,.94); }
+.legend-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+.legend-header span { font-weight: 700; color: var(--text); }
+.legend-toggle { cursor: pointer; font-weight: 700; color: var(--accent); padding: 0 4px; }
+.legend-body { display: flex; flex-direction: column; gap: 4px; }
+.legend-row { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .legend-row input[type="checkbox"] { cursor: pointer; accent-color: var(--accent); }
-.sw { width: 24px; height: 4px; border-radius: 3px; }
+.legend-count { margin-left: auto; font-size: 10px; color: var(--muted); font-weight: 600; }
+.sw { width: 22px; height: 4px; border-radius: 3px; }
 .node { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid #fff; }
 
-/* Фокус */
+/* Фокус и подсказки */
 .focus-note {
   position: absolute; z-index: 1000;
   top: 74px; right: 425px;
   background: rgba(25,30,35,.94); border: 1px solid var(--border);
-  padding: 8px 12px; border-radius: 6px; color: #cbd3db; font-size: 11px;
+  padding: 8px 12px; border-radius: 6px; color: var(--text); font-size: 11px;
   font-weight: 600; display: none; box-shadow: 0 4px 16px rgba(0,0,0,.25);
+}
+body.light-theme .focus-note { background: rgba(255,255,255,.94); }
+
+/* Плашка результатов линейки */
+.measure-box {
+  position: absolute; z-index: 1000; bottom: 18px; left: 260px;
+  background: rgba(25,30,35,.94); border: 1px solid var(--accent);
+  padding: 8px 12px; border-radius: 6px; color: #fff; font-size: 12px; font-weight: 600;
+  display: none; box-shadow: 0 4px 16px rgba(0,0,0,.3);
 }
 
 @media(max-width: 900px){
@@ -144,16 +152,19 @@ td:last-child { font-weight: 600; color: #f1f4f7; word-break: break-word; }
 
 <div class="topbar">
   <div class="brand">ЭНЕРГОУЗЕЛ ШИЕЛИ / ДИСПЕТЧЕРСКАЯ ГИС</div>
-  <button class="export-btn" id="exportCsvBtn" title="Экспортировать данные в Excel CSV">📊 Скачать таблицу</button>
+  <button class="btn-ui" id="measureBtn" title="Включить инструмент измерения протяженности">📏 Линейка</button>
+  <button class="btn-ui" id="themeBtn" title="Переключить тему интерфейса">🌙 Тема</button>
+  <button class="btn-ui" id="exportCsvBtn" title="Экспортировать данные в Excel CSV">📊 Скачать CSV</button>
   <div class="status"><span class="dot" id="statusDot"></span> <span id="statusText">Загрузка данных...</span></div>
 </div>
 
 <div class="search">
-  <input id="searchInput" placeholder="Поиск ПС, РП, фидера, ТП или линии...">
-  <div id="results" class="results"></div>
+  <input id="searchInput" placeholder="Поиск ПС, РП, фидера, ТП или линии..." autocomplete="off">
+  <div id="searchResults" class="results"></div>
 </div>
 
 <div id="focusNote" class="focus-note"></div>
+<div id="measureBox" class="measure-box">Дистанция: <span id="measureDist">0 м</span></div>
 
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-head">
@@ -167,45 +178,46 @@ td:last-child { font-weight: 600; color: #f1f4f7; word-break: break-word; }
       <h3>Параметры</h3>
       <table id="attrs"><tr><td>Состояние</td><td>Ожидание выбора</td></tr></table>
     </div>
-    <div class="section">
-      <h3>Внешние ссылки / документация</h3>
-      <div id="links" class="link-list"><div style="color:#8f9aa5;font-size:12px">Нет выбранного объекта.</div></div>
-    </div>
-    <div class="section">
-      <h3>Связанные объекты</h3>
-      <div id="relatedList" class="related-list"><div style="color:#8f9aa5;font-size:12px">Нет связанных элементов.</div></div>
-    </div>
   </div>
 </aside>
 
-<div class="legend">
+<div class="legend" id="legendBox">
   <div class="legend-header">
     <span>КЛАСС НАПРЯЖЕНИЯ</span>
+    <span class="legend-toggle" id="legendToggle" title="Свернуть/Развернуть">—</span>
   </div>
-  <label class="legend-row">
-    <input type="checkbox" data-voltage="110" checked>
-    <span class="sw" style="background:#ff3b30;height:5px"></span> 110 кВ
-  </label>
-  <label class="legend-row">
-    <input type="checkbox" data-voltage="35" checked>
-    <span class="sw" style="background:#ff9f43;height:4px"></span> 35 кВ
-  </label>
-  <label class="legend-row">
-    <input type="checkbox" data-voltage="10" checked>
-    <span class="sw" style="background:#36a8ff;height:4px"></span> 10(6) кВ
-  </label>
-  <label class="legend-row">
-    <input type="checkbox" data-voltage="0.4" checked>
-    <span class="sw" style="background:#b57cff;height:3px"></span> 0,4 кВ
-  </label>
-  <label class="legend-row">
-    <input type="checkbox" data-voltage="substation" checked>
-    <span class="node" style="background:#e34b4b"></span> ПС / РП
-  </label>
-  <label class="legend-row">
-    <input type="checkbox" data-voltage="tp" checked>
-    <span class="node" style="background:#ffd34d"></span> ТП / КТП
-  </label>
+  <div class="legend-body" id="legendBody">
+    <label class="legend-row">
+      <input type="checkbox" data-voltage="110" checked>
+      <span class="sw" style="background:#ff3b30;height:5px"></span> 110 кВ
+      <span class="legend-count" id="count-110">0</span>
+    </label>
+    <label class="legend-row">
+      <input type="checkbox" data-voltage="35" checked>
+      <span class="sw" style="background:#ff9f43;height:4px"></span> 35 кВ
+      <span class="legend-count" id="count-35">0</span>
+    </label>
+    <label class="legend-row">
+      <input type="checkbox" data-voltage="10" checked>
+      <span class="sw" style="background:#36a8ff;height:4px"></span> 10(6) кВ
+      <span class="legend-count" id="count-10">0</span>
+    </label>
+    <label class="legend-row">
+      <input type="checkbox" data-voltage="0.4" checked>
+      <span class="sw" style="background:#b57cff;height:3px"></span> 0,4 кВ
+      <span class="legend-count" id="count-0.4">0</span>
+    </label>
+    <label class="legend-row">
+      <input type="checkbox" data-voltage="substation" checked>
+      <span class="node" style="background:#e34b4b"></span> ПС / РП
+      <span class="legend-count" id="count-substation">0</span>
+    </label>
+    <label class="legend-row">
+      <input type="checkbox" data-voltage="tp" checked>
+      <span class="node" style="background:#ffd34d"></span> ТП / КТП
+      <span class="legend-count" id="count-tp">0</span>
+    </label>
+  </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -225,21 +237,11 @@ const filters = {
   "tp": true
 };
 
-// Словарная связка объектов
 const EXPLICIT_CONNECTIONS = {
   "пс «шиели»": [
-    "кызылту",
-    "аэропорт",
-    "райцентр",
-    "залинейный",
-    "шиелы от пс \"алмалы\"",
-    "яч-13",
-    "црп ввод-1",
-    "уп",
-    "л-95",
-    "л-36",
-    "35-кв",
-    "вл-110 кв"
+    "кызылту", "аэропорт", "райцентр", "залинейный",
+    "шиелы от пс \"алмалы\"", "яч-13", "црп ввод-1",
+    "уп", "л-95", "л-36", "35-кв", "вл-110 кв"
   ]
 };
 
@@ -311,7 +313,11 @@ function makeFeatureLayer(o) {
     layer = L.geoJSON(g, { style: () => s });
   }
 
-  layer.on("click", e => { L.DomEvent.stopPropagation(e); selectObject(o.id); });
+  layer.on("click", e => { 
+    if (isMeasuring) return;
+    L.DomEvent.stopPropagation(e); 
+    selectObject(o.id); 
+  });
   layer.bindTooltip(o.name, { sticky: true, opacity: .95 });
   return layer;
 }
@@ -363,7 +369,20 @@ async function loadGeoJSON() {
 
   DATA.forEach(o => objects.set(o.id, o));
   renderGeoJSON();
+  updateCounts();
   document.getElementById("statusText").textContent = `GeoJSON: ${DATA.length} объектов`;
+}
+
+function updateCounts() {
+  const counts = { "110": 0, "35": 0, "10": 0, "0.4": 0, "substation": 0, "tp": 0 };
+  DATA.forEach(o => {
+    const cat = getVoltageCategory(o);
+    if (counts[cat] !== undefined) counts[cat]++;
+  });
+  for (const [key, val] of Object.entries(counts)) {
+    const el = document.getElementById(`count-${key}`);
+    if (el) el.textContent = val;
+  }
 }
 
 function renderGeoJSON() {
@@ -429,6 +448,43 @@ function refreshAll() {
   });
 }
 
+/* Интерактивный Поиск с автокомплитом */
+const searchInput = document.getElementById("searchInput");
+const searchResults = document.getElementById("searchResults");
+
+searchInput.addEventListener("input", (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  if (q.length < 2) {
+    searchResults.style.display = "none";
+    searchResults.innerHTML = "";
+    return;
+  }
+
+  const matches = DATA.filter(o => String(o.name || "").toLowerCase().includes(q)).slice(0, 10);
+
+  if (matches.length === 0) {
+    searchResults.style.display = "block";
+    searchResults.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--muted)">Ничего не найдено</div>';
+    return;
+  }
+
+  searchResults.innerHTML = matches.map(m => `
+    <div class="result" data-id="${esc(m.id)}">
+      <span>${esc(m.name)}</span>
+      <span class="result-type">${esc(m.voltage || m.type || "Узел")}</span>
+    </div>
+  `).join("");
+  searchResults.style.display = "block";
+
+  searchResults.querySelectorAll(".result").forEach(el => {
+    el.onclick = () => {
+      selectObject(el.dataset.id);
+      searchResults.style.display = "none";
+    };
+  });
+});
+
+/* Фильтры и свертывание легенды */
 document.querySelectorAll('.legend input[type="checkbox"]').forEach(chk => {
   chk.addEventListener('change', (e) => {
     const v = e.target.dataset.voltage;
@@ -436,6 +492,85 @@ document.querySelectorAll('.legend input[type="checkbox"]').forEach(chk => {
     refreshAll();
   });
 });
+
+const legendToggle = document.getElementById("legendToggle");
+const legendBody = document.getElementById("legendBody");
+let legendCollapsed = false;
+
+legendToggle.onclick = () => {
+  legendCollapsed = !legendCollapsed;
+  legendBody.style.display = legendCollapsed ? "none" : "flex";
+  legendToggle.textContent = legendCollapsed ? "+" : "—";
+};
+
+/* Инструмент линейки (измерение расстояния) */
+let isMeasuring = false;
+let measurePoints = [];
+let measurePolyline = null;
+let measureMarkers = [];
+const measureBtn = document.getElementById("measureBtn");
+const measureBox = document.getElementById("measureBox");
+const measureDist = document.getElementById("measureDist");
+
+measureBtn.onclick = () => {
+  isMeasuring = !isMeasuring;
+  measureBtn.classList.toggle("active", isMeasuring);
+  if (isMeasuring) {
+    resetSelection();
+    measurePoints = [];
+    measureBox.style.display = "block";
+    measureDist.textContent = "Кликните по карте...";
+  } else {
+    clearMeasurement();
+  }
+};
+
+function clearMeasurement() {
+  measureBox.style.display = "none";
+  if (measurePolyline) map.removeLayer(measurePolyline);
+  measureMarkers.forEach(m => map.removeLayer(m));
+  measurePoints = [];
+  measureMarkers = [];
+  measurePolyline = null;
+}
+
+map.on("click", (e) => {
+  if (!isMeasuring) {
+    resetSelection();
+    return;
+  }
+
+  measurePoints.push(e.latlng);
+  const marker = L.circleMarker(e.latlng, { radius: 5, color: "#39a9ff", fillColor: "#fff", fillOpacity: 1 }).addTo(map);
+  measureMarkers.push(marker);
+
+  if (!measurePolyline) {
+    measurePolyline = L.polyline(measurePoints, { color: "#39a9ff", weight: 3, dashArray: "5 5" }).addTo(map);
+  } else {
+    measurePolyline.setLatLngs(measurePoints);
+  }
+
+  let totalDist = 0;
+  for (let i = 0; i < measurePoints.length - 1; i++) {
+    totalDist += measurePoints[i].distanceTo(measurePoints[i + 1]);
+  }
+
+  measureDist.textContent = totalDist > 1000 ? (totalDist / 1000).toFixed(2) + " км" : Math.round(totalDist) + " м";
+});
+
+/* Переключение темы */
+const themeBtn = document.getElementById("themeBtn");
+let isLightTheme = false;
+
+themeBtn.onclick = () => {
+  isLightTheme = !isLightTheme;
+  document.body.classList.toggle("light-theme", isLightTheme);
+  themeBtn.textContent = isLightTheme ? "☀️ Тема" : "🌙 Тема";
+  if (isLightTheme) {
+    map.addLayer(osm);
+    map.removeLayer(esri);
+  }
+};
 
 function selectObject(id) {
   const o = objects.get(id);
@@ -446,8 +581,11 @@ function selectObject(id) {
 
   const layer = layers.get(id);
   if (layer && map.hasLayer(layer)) {
-    const b = layer.getBounds ? layer.getBounds() : layer.getLatLng ? L.latLngBounds([layer.getLatLng()]) : null;
-    if (b && b.isValid()) map.fitBounds(b.pad(.6), {maxZoom: 17});
+    if (layer.flyTo) {
+      map.flyTo(layer.getLatLng(), 16);
+    } else if (layer.getBounds && layer.getBounds().isValid()) {
+      map.flyToBounds(layer.getBounds().pad(.6), { maxZoom: 17 });
+    }
   }
 
   showCard(o);
@@ -462,7 +600,6 @@ function resetSelection() {
   clearCard();
 }
 
-map.on("click", resetSelection);
 document.getElementById("closePanel").onclick = resetSelection;
 
 function showCard(o) {

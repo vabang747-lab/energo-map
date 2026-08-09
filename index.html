@@ -42,6 +42,8 @@ table{width:100%;border-collapse:collapse;font-size:12px}
 td{padding:7px 6px;border-bottom:1px solid #333b43;vertical-align:top}
 td:first-child{color:var(--muted);width:44%}
 td:last-child{font-weight:600;color:#f1f4f7;word-break:break-word}
+.toggle-btn{width:100%;padding:9px 12px;background:#2b3540;border:1px solid var(--accent);color:var(--accent);border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;margin-bottom:12px;transition:all .2s}
+.toggle-btn:hover{background:var(--accent);color:#fff}
 .link-list{display:flex;flex-direction:column;gap:7px}
 .link-btn{display:flex;align-items:center;gap:8px;text-decoration:none;color:#dfeeff;background:#29333c;border:1px solid #3d4a55;border-radius:5px;padding:8px 10px;font-size:12px}
 .link-btn:hover{background:#33414c;border-color:#5b6c79}
@@ -52,50 +54,13 @@ td:last-child{font-weight:600;color:#f1f4f7;word-break:break-word}
 .node{width:12px;height:12px;border-radius:50%;border:2px solid #fff}
 .focus-note{position:absolute;z-index:1000;top:76px;right:425px;background:rgba(25,30,35,.94);border:1px solid var(--border);padding:8px 10px;border-radius:5px;color:#cbd3db;font-size:11px;display:none}
 @media(max-width:850px){.sidebar{width:340px}.topbar{right:350px}.focus-note{right:355px}}
-/* Профессиональное обозначение ТП */
-.tp-map-marker{
-  width:34px;height:34px;position:relative;display:flex;align-items:center;justify-content:center;
-  transition:transform .14s ease, filter .14s ease, opacity .14s ease;
-  cursor:pointer;
-}
-.tp-map-marker .tp-body{
-  width:26px;height:26px;border:2px solid #f5c842;border-radius:6px;
-  background:linear-gradient(145deg,#303941,#171c21);
-  box-shadow:0 2px 7px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.08);
-  display:flex;align-items:center;justify-content:center;position:relative;
-}
-.tp-map-marker .tp-core{
-  width:12px;height:12px;border:2px solid #f5c842;border-radius:50%;position:relative;
-}
-.tp-map-marker .tp-core:before,
-.tp-map-marker .tp-core:after{
-  content:"";position:absolute;background:#f5c842;
-}
-.tp-map-marker .tp-core:before{width:2px;height:20px;left:3px;top:-6px}
-.tp-map-marker .tp-core:after{height:2px;width:20px;left:-6px;top:3px}
-.tp-map-marker .tp-terminal{
-  position:absolute;width:5px;height:5px;border-radius:50%;background:#f5c842;
-  border:1px solid #151a1f;box-shadow:0 0 0 1px #f5c842;
-}
-.tp-map-marker .t1{left:1px;top:7px}.tp-map-marker .t2{right:1px;top:7px}
-.tp-map-marker .t3{left:1px;bottom:7px}.tp-map-marker .t4{right:1px;bottom:7px}
-.tp-map-marker:hover{transform:scale(1.18);filter:drop-shadow(0 0 7px rgba(245,200,66,.75))}
-.tp-map-marker.tp-selected{transform:scale(1.18);filter:drop-shadow(0 0 9px rgba(245,200,66,.95))}
-.tp-map-marker.tp-dimmed{opacity:.25}
-.leaflet-tooltip.tp-professional-label{
-  background:rgba(20,25,30,.96);color:#f4f6f8;border:1px solid #59636c;
-  border-radius:4px;box-shadow:0 3px 12px rgba(0,0,0,.45);font-size:10px;font-weight:700;
-  padding:4px 6px;white-space:nowrap;
-}
-.leaflet-tooltip.tp-professional-label:before{border-top-color:#59636c}
-
 </style>
 </head>
 <body>
 <div id="map"></div>
 <div class="topbar">
   <div class="brand">ЭНЕРГОУЗЕЛ ШИЕЛИ / ДИСПЕТЧЕРСКАЯ ГИС</div>
-  <div class="status"><span class="dot" id="statusDot"></span> <span id="statusText">GeoJSON: data_synchronized.geojson</span></div>
+  <div class="status"><span class="dot" id="statusDot"></span> <span id="statusText">Загрузка данных...</span></div>
 </div>
 <div class="search">
   <input id="searchInput" placeholder="Поиск ПС, РП, фидера, ТП или линии...">
@@ -110,6 +75,9 @@ td:last-child{font-weight:600;color:#f1f4f7;word-break:break-word}
     <div class="subtitle" id="objectSubtitle">Кликните объект на карте</div>
   </div>
   <div class="sidebar-body">
+    <div id="tpControls" style="display:none">
+      <button class="toggle-btn" id="toggle04Btn">⚡ Переключить сеть 0.4 кВ</button>
+    </div>
     <div class="section">
       <h3>Параметры</h3>
       <table id="attrs"><tr><td>Состояние</td><td>Ожидание выбора</td></tr></table>
@@ -130,80 +98,65 @@ td:last-child{font-weight:600;color:#f1f4f7;word-break:break-word}
   <div class="legend-row"><span class="node" style="background:#ffd34d"></span> ТП / КТП</div>
   <div class="legend-row"><span class="node" style="background:#48d597"></span> СЭС / прочее</div>
 </div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 let DATA = [];
 const DATA_URL = "./data_synchronized.geojson";
-
-async function loadGeoJSON() {
-  const response = await fetch(DATA_URL, {cache:"no-store"});
-  if (!response.ok) throw new Error(`Не удалось загрузить ${DATA_URL}: HTTP ${response.status}`);
-  const geojson = await response.json();
-
-  DATA = (geojson.features || []).map((feature, i) => {
-    const p = feature.properties || {};
-    return {
-      ...p,
-      id: p.id || `geo_${String(i).padStart(4,"0")}`,
-      name: p.name || `Объект ${i+1}`,
-      type: p.object_type || (feature.geometry && feature.geometry.type ? feature.geometry.type.toLowerCase() : "point"),
-      geometry: feature.geometry
-    };
-  });
-
-  DATA.forEach(o => {
-    objects.set(o.id, o);
-  });
-  DATA.forEach(o => {
-    if (o.parent_id && objects.has(o.parent_id)) addChild(o.parent_id, o.id);
-  });
-
-  renderGeoJSON();
-
-  document.getElementById("statusText").textContent = `GeoJSON: data_synchronized.geojson (${DATA.length} объектов)`;
-}
-
-const map = L.map("map",{zoomControl:true,preferCanvas:true}).setView([44.18,66.73],14);
-const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:20,attribution:"© OpenStreetMap contributors"});
-const carto = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{maxZoom:20,attribution:"© OpenStreetMap © CARTO"});
-const esri = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:20,attribution:"Tiles © Esri"});
-const labels = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",{maxZoom:20,attribution:"© CARTO"});
-
-osm.addTo(map);
-L.control.layers({"Стандартная схема":osm,"Спутник":esri,"Гибрид: спутник + подписи":L.layerGroup([esri,labels]),"Светлая схема":carto},null,{collapsed:false,position:"topright"}).addTo(map);
-
 const layers = new Map();
 const objects = new Map();
 const children = new Map();
 let selectedId = null;
-let selectedTp04 = new Set();
+let visible04TpIds = new Set();
 
-function addChild(parent,id){if(!children.has(parent)) children.set(parent,new Set());children.get(parent).add(id);}
+const map = L.map("map", {zoomControl: true, preferCanvas: true}).setView([44.18, 66.73], 14);
+const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 20, attribution: "© OpenStreetMap"});
+const esri = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {maxZoom: 20, attribution: "© Esri"});
+const labels = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {maxZoom: 20, attribution: "© CARTO"});
+
+osm.addTo(map);
+L.control.layers({"Стандартная схема": osm, "Спутник": esri, "Гибрид": L.layerGroup([esri, labels])}, null, {collapsed: false, position: "topright"}).addTo(map);
+
+function addChild(parent, id) {
+  if (!children.has(parent)) children.set(parent, new Set());
+  children.get(parent).add(id);
+}
 
 function objectIs04(o) {
-  // Классифицируем ТОЛЬКО по object_type. Проверка по строке voltage раньше
-  // ложно захватывала ТП (у них voltage = "10/0,4 кВ", т.к. это КТП понижает
-  // именно с 10 до 0,4 кВ) — из-за чего все ТП считались "объектами 0,4 кВ"
-  // и скрывались с карты до бесконечности (их parent_id никогда не совпадал
-  // с id выбранного ТП). Линии/вводы 0,4 кВ уже однозначно размечены типами
-  // line04 / input04 в GeoJSON — этого достаточно.
-  return o.type === "line04" || o.type === "input04";
+  if (!o) return false;
+  const t = String(o.type || o.object_type || "").toLowerCase();
+  const v = String(o.voltage || "").toLowerCase();
+  return t === "line04" || t === "input04" || t.includes("0.4") || t.includes("0,4") || v.includes("0.4") || v.includes("0,4");
+}
+
+function getNodeRadius(o, zoom) {
+  const z = zoom || map.getZoom();
+  let base = 5;
+  if (o.type === "substation") base = 10;
+  else if (o.type === "rp") base = 9;
+  else if (o.type === "tp") base = 7;
+  
+  if (z <= 11) return Math.max(2, base - 4.5);
+  if (z === 12) return Math.max(2.5, base - 3.5);
+  if (z === 13) return Math.max(3.5, base - 2);
+  if (z === 14) return base;
+  if (z === 15) return base + 1;
+  return base + 2.5;
 }
 
 function styleForObject(o) {
+  const is04 = objectIs04(o);
+  if (is04) return {color: "#b57cff", weight: 3, opacity: 0.95, dashArray: "6 5"};
+  
   switch (o.type) {
-    case "substation": return {color:"#e34b4b", fillColor:"#e34b4b", radius:10, weight:3};
-    case "rp": return {color:"#ff7b45", fillColor:"#ff7b45", radius:9, weight:3};
-    case "tp": return {color:"#ffd34d", fillColor:"#ffd34d", radius:7, weight:2};
-    case "power_object": return {color:"#48d597", fillColor:"#48d597", radius:8, weight:2, fillOpacity:.35};
-    case "line110": return {color:"#ff3b30", weight:6, opacity:.95};
-    case "line35": return {color:"#ff9f43", weight:5, opacity:.95};
+    case "substation": return {color: "#e34b4b", fillColor: "#e34b4b", radius: getNodeRadius(o), weight: 3};
+    case "rp": return {color: "#ff7b45", fillColor: "#ff7b45", radius: getNodeRadius(o), weight: 3};
+    case "tp": return {color: "#ffd34d", fillColor: "#ffd34d", radius: getNodeRadius(o), weight: 2};
+    case "line110": return {color: "#ff3b30", weight: 6, opacity: .95};
+    case "line35": return {color: "#ff9f43", weight: 5, opacity: .95};
     case "feeder":
-    case "line10": return {color:"#36a8ff", weight:5, opacity:.95};
-    case "line04": return {color:"#b57cff", weight:3, opacity:.95, dashArray:"6 5"};
-    case "input04": return {color:"#b57cff", weight:2, opacity:.95, dashArray:"3 5"};
-    case "line": return {color:"#36a8ff", weight:4, opacity:.9};
-    default: return {color:"#aab4be", fillColor:"#aab4be", radius:5, weight:1};
+    case "line10": return {color: "#36a8ff", weight: 5, opacity: .95};
+    default: return {color: "#aab4be", fillColor: "#aab4be", radius: getNodeRadius(o), weight: 2};
   }
 }
 
@@ -214,49 +167,56 @@ function makeFeatureLayer(o) {
 
   let layer;
   if (g.type === "Point") {
-    if (o.type === "tp") {
-      const icon = L.divIcon({
-        className:"tp-div-icon",
-        html:`<div class="tp-map-marker" data-tp-id="${escAttr(o.id)}" title="${escAttr(o.name)}">
-                <div class="tp-body"><div class="tp-core"></div></div>
-                <span class="tp-terminal t1"></span><span class="tp-terminal t2"></span>
-                <span class="tp-terminal t3"></span><span class="tp-terminal t4"></span>
-              </div>`,
-        iconSize:[34,34],iconAnchor:[17,17],tooltipAnchor:[0,-18]
-      });
-      layer = L.marker([g.coordinates[1],g.coordinates[0]], {icon:icon, keyboard:true, zIndexOffset:10000});
-      layer.bindTooltip(o.name,{direction:"top",className:"tp-professional-label",offset:[0,-14]});
-      layer.on("mouseover",()=>{
-        const el=layer.getElement()?.querySelector(".tp-map-marker");
-        if(el)el.classList.add("tp-selected");
-      });
-      layer.on("mouseout",()=>{
-        const el=layer.getElement()?.querySelector(".tp-map-marker");
-        if(el && selectedId!==o.id)el.classList.remove("tp-selected");
-        refreshLineStyle(o.id);
-      });
-    } else {
-      layer = L.circleMarker([g.coordinates[1],g.coordinates[0]], {radius:s.radius || 5, color:s.color, fillColor:s.fillColor || s.color, fillOpacity:s.fillOpacity ?? 1, weight:s.weight || 1});
-      layer.on("mouseover",()=>layer.setStyle({radius:(s.radius||5)+3,weight:(s.weight||1)+1}));
-      layer.on("mouseout",()=>refreshLineStyle(o.id));
-    }
+    layer = L.circleMarker([g.coordinates[1], g.coordinates[0]], {
+      radius: s.radius, color: s.color, fillColor: s.fillColor || s.color, fillOpacity: 0.8, weight: s.weight
+    });
   } else {
-    layer = L.geoJSON(g,{style:()=>s});
-    layer.on("mouseover",()=>layer.setStyle({weight:(s.weight||2)+3,opacity:1}));
-    layer.on("mouseout",()=>refreshLineStyle(o.id));
+    layer = L.geoJSON(g, { style: () => s });
   }
 
-  layer.on("click",e=>{L.DomEvent.stopPropagation(e);selectObject(o.id)});
-  layer.bindTooltip(o.name,{sticky:true,opacity:.95});
+  layer.on("click", e => { L.DomEvent.stopPropagation(e); selectObject(o.id); });
+  layer.bindTooltip(o.name, { sticky: true, opacity: .95 });
   return layer;
 }
 
+async function loadGeoJSON() {
+  const response = await fetch(DATA_URL, {cache: "no-store"});
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const geojson = await response.json();
+
+  DATA = (geojson.features || []).map((feature, i) => {
+    const p = feature.properties || {};
+    return {
+      ...p,
+      id: String(p.id || `geo_${String(i).padStart(4, "0")}`),
+      parent_id: p.parent_id ? String(p.parent_id) : null,
+      name: p.name || `Объект ${i+1}`,
+      type: p.object_type || (feature.geometry && feature.geometry.type ? feature.geometry.type.toLowerCase() : "point"),
+      geometry: feature.geometry
+    };
+  });
+
+  DATA.forEach(o => objects.set(o.id, o));
+  DATA.forEach(o => {
+    if (o.parent_id && objects.has(o.parent_id)) {
+      addChild(o.parent_id, o.id);
+    }
+  });
+
+  renderGeoJSON();
+  document.getElementById("statusText").textContent = `Загружено ${DATA.length} объектов`;
+}
+
 function renderGeoJSON() {
-  DATA.forEach(o=>{
-    const layer=makeFeatureLayer(o);
-    if(!layer)return;
-    layers.set(o.id,layer);
-    if (!objectIs04(o)) layer.addTo(map);
+  DATA.forEach(o => {
+    const layer = makeFeatureLayer(o);
+    if (!layer) return;
+    layers.set(o.id, layer);
+    
+    // Не выводим 0.4 кВ по умолчанию при старте
+    if (!objectIs04(o)) {
+      layer.addTo(map);
+    }
   });
 
   const allLayers = Array.from(layers.values());
@@ -264,172 +224,127 @@ function renderGeoJSON() {
     const group = L.featureGroup(allLayers);
     if (group.getBounds().isValid()) map.fitBounds(group.getBounds().pad(.05));
   }
-  refreshAll();
 }
 
-function descendants(id){
-  const out=new Set([id]);
-  const walk=p=>{(children.get(p)||[]).forEach(ch=>{if(!out.has(ch)){out.add(ch);walk(ch)}})};
-  walk(id); return out;
-}
-function ancestorChain(id){
-  const out=new Set(); let cur=objects.get(id);
-  while(cur){out.add(cur.id);cur=cur.parent_id?objects.get(cur.parent_id):null;}
-  return out;
-}
-function relatedForSelection(id){
-  const o=objects.get(id), set=new Set();
-  if(!o)return set;
-  if(o.type==="substation" || o.type==="rp"){descendants(id).forEach(x=>set.add(x));}
-  else if(o.type==="feeder" || o.type==="line10" || o.type==="line"){set.add(o.id);descendants(o.id).forEach(x=>set.add(x));ancestorChain(o.id).forEach(x=>set.add(x));}
-  else if(o.type==="tp"){set.add(o.id);ancestorChain(o.id).forEach(x=>set.add(x));(children.get(o.id)||[]).forEach(x=>set.add(x));}
-  else {set.add(o.id);ancestorChain(o.id).forEach(x=>set.add(x));}
-  return set;
-}
+function refreshAll() {
+  DATA.forEach(o => {
+    const l = layers.get(o.id);
+    if (!l) return;
 
-function refreshLineStyle(id){
-  const o=objects.get(id), l=layers.get(id); if(!l)return;
-  const s=styleForObject(o);
-  let op=s.opacity ?? 1, wt=s.weight ?? 2;
-  if(selectedId){
-    const rel=relatedForSelection(selectedId);
-    op=rel.has(id)?1:.25;
-    wt=rel.has(id)?wt+1:wt;
-  }
-  if (o.type === "tp" && l.getElement) {
-    const el=l.getElement()?.querySelector(".tp-map-marker");
-    if(el){
-      el.classList.toggle("tp-dimmed", op < 0.5);
-      el.classList.toggle("tp-selected", selectedId === o.id && op >= 0.5);
-    }
-    l.setOpacity(op);
-    return;
-  }
-  if (l.setStyle) l.setStyle({opacity:op,weight:wt,fillOpacity:op});
-}
-
-function refreshAll(){
-  const rel=selectedId?relatedForSelection(selectedId):null;
-  DATA.forEach(o=>{
-    const l=layers.get(o.id); if(!l)return;
-    if(objectIs04(o)){
-      const visible=selectedTp04.has(o.parent_id);
-      if(visible && !map.hasLayer(l)) l.addTo(map);
-      if(!visible && map.hasLayer(l)) map.removeLayer(l);
-    }
-    const s=styleForObject(o);
-    const active=selectedId ? rel.has(o.id) : true;
-    const op=active?1:.25;
-    if(o.type === "tp" && l.getElement){
-      const el=l.getElement()?.querySelector(".tp-map-marker");
-      if(el){
-        el.classList.toggle("tp-dimmed", !active);
-        el.classList.toggle("tp-selected", selectedId===o.id && active);
+    const is04 = objectIs04(o);
+    
+    if (is04) {
+      // Показываем линию 0.4 кВ только если её родительская ТП активирована
+      const isParentActive = o.parent_id && visible04TpIds.has(o.parent_id);
+      if (isParentActive) {
+        if (!map.hasLayer(l)) l.addTo(map);
+      } else {
+        if (map.hasLayer(l)) map.removeLayer(l);
       }
-      l.setOpacity(op);
-    } else if(l.setStyle) {
-      l.setStyle({opacity:op,fillOpacity:s.fillOpacity!==undefined?(active?s.fillOpacity:s.fillOpacity*.4):op,weight:(s.weight||2)+(active&&selectedId?1:0),radius:s.radius});
+    }
+
+    // Выделение текущего выбранного объекта
+    const s = styleForObject(o);
+    const isSelected = selectedId === o.id;
+    if (l.setStyle) {
+      l.setStyle({
+        opacity: isSelected ? 1 : (selectedId ? 0.4 : 0.9),
+        weight: isSelected ? (s.weight || 2) + 2 : s.weight
+      });
+      if (o.geometry && o.geometry.type === "Point" && l.setRadius) {
+        l.setRadius(isSelected ? getNodeRadius(o) + 4 : getNodeRadius(o));
+      }
     }
   });
 }
 
-function selectObject(id){
-  const o=objects.get(id); if(!o)return;
-  selectedId=id;
-  selectedTp04.clear();
-  if(o.type==="tp") selectedTp04.add(o.id);
+function selectObject(id) {
+  const o = objects.get(id);
+  if (!o) return;
+
+  selectedId = id;
+
+  // Если нажали на ТП — открываем связанную сеть 0.4 кВ
+  if (o.type === "tp" || o.type === "ktp" || o.type === " transformer") {
+    visible04TpIds.clear();
+    visible04TpIds.add(o.id);
+    document.getElementById("tpControls").style.display = "block";
+  } else {
+    document.getElementById("tpControls").style.display = "none";
+  }
+
   refreshAll();
 
-  const layer=layers.get(id);
-  if(layer){
-    const b=layer.getBounds?layer.getBounds():layer.getLatLng?L.latLngBounds([layer.getLatLng()]):null;
-    if(b && b.isValid && b.isValid()) map.fitBounds(b.pad(.7),{maxZoom:16});
+  const layer = layers.get(id);
+  if (layer) {
+    const b = layer.getBounds ? layer.getBounds() : layer.getLatLng ? L.latLngBounds([layer.getLatLng()]) : null;
+    if (b && b.isValid()) map.fitBounds(b.pad(.6), {maxZoom: 17});
   }
+
   showCard(o);
-  document.getElementById("focusNote").style.display="block";
-  document.getElementById("focusNote").textContent="ФОКУС: "+o.name;
+  document.getElementById("focusNote").style.display = "block";
+  document.getElementById("focusNote").textContent = "ФОКУС: " + o.name;
 }
 
-function resetSelection(){
-  selectedId=null;selectedTp04.clear();refreshAll();
-  document.getElementById("focusNote").style.display="none";
+function resetSelection() {
+  selectedId = null;
+  visible04TpIds.clear();
+  refreshAll();
+  document.getElementById("focusNote").style.display = "none";
+  document.getElementById("tpControls").style.display = "none";
   clearCard();
 }
-map.on("click",resetSelection);
 
-const TYPE_LABELS = {
-  substation:"ПОДСТАНЦИЯ",
-  rp:"РАСПРЕДЕЛИТЕЛЬНЫЙ ПУНКТ",
-  tp:"ТРАНСФОРМАТОРНЫЙ ПУНКТ",
-  power_object:"ЭНЕРГООБЪЕКТ",
-  line110:"ЛИНИЯ 110 КВ",
-  line35:"ЛИНИЯ 35 КВ",
-  feeder:"ФИДЕР 10 КВ",
-  line10:"ЛИНИЯ 10 КВ",
-  line04:"ЛИНИЯ 0,4 КВ",
-  input04:"ВВОД 0,4 КВ"
+document.getElementById("toggle04Btn").onclick = () => {
+  if (selectedId) {
+    if (visible04TpIds.has(selectedId)) {
+      visible04TpIds.delete(selectedId);
+    } else {
+      visible04TpIds.add(selectedId);
+    }
+    refreshAll();
+  }
 };
 
-function showCard(o){
-  document.getElementById("objectTitle").textContent=o.name;
-  document.getElementById("objectSubtitle").textContent=TYPE_LABELS[o.type] || "ОБЪЕКТ";
+map.on("click", resetSelection);
+document.getElementById("closePanel").onclick = resetSelection;
+
+function showCard(o) {
+  document.getElementById("objectTitle").textContent = o.name;
+  document.getElementById("objectSubtitle").textContent = o.type ? o.type.toUpperCase() : "ОБЪЕКТ";
   const parent = o.parent_id ? objects.get(o.parent_id) : null;
-  const rows=[
-    ["ID",o.id],
-    ["Тип объекта",o.object_type||o.type||"—"],
-    ["Напряжение",o.voltage||"—"],
-    ["Год ввода",o.year||"—"],
-    ["Балансовая принадлежность",o.balance||"—"],
-    ["Запитано от",parent?parent.name:(o.fed_from||"—")],
-    ["Установленная мощность",o.power_kva||"—"],
-    ["Зав./Инв. №",o.inventory_no||"—"],
-    ["Протяженность",o.length!=null && o.length!=="" ?o.length:"—"],
-    ["Описание",o.description||"—"]
+  const rows = [
+    ["ID", o.id],
+    ["Тип объекта", o.object_type || o.type || "—"],
+    ["Напряжение", o.voltage || "—"],
+    ["Запитано от", parent ? parent.name : (o.fed_from || "—")],
+    ["Мощность", o.power_kva || "—"],
+    ["Описание", o.description || "—"]
   ];
-  document.getElementById("attrs").innerHTML=rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join("");
-  const links=Array.isArray(o.links)?o.links:[];
-  document.getElementById("links").innerHTML=links.length
-    ?links.map(x=>{
-      const label=x.name||x.title||"Внешняя ссылка";
-      const url=x.url||x.href||"";
-      return url?`<a class="link-btn" href="${escAttr(url)}" target="_blank" rel="noopener noreferrer"><span>↗</span>${esc(label)}</a>`:"";
-    }).join("")
-    :'<div style="color:#8f9aa5;font-size:12px">Внешние ссылки не заданы.</div>';
+  document.getElementById("attrs").innerHTML = rows.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join("");
 }
 
-function clearCard(){
-  document.getElementById("objectTitle").textContent="Объект не выбран";
-  document.getElementById("objectSubtitle").textContent="Кликните объект на карте";
-  document.getElementById("attrs").innerHTML='<tr><td>Состояние</td><td>Ожидание выбора</td></tr>';
-  document.getElementById("links").innerHTML='<div style="color:#8f9aa5;font-size:12px">Нет выбранного объекта.</div>';
+function clearCard() {
+  document.getElementById("objectTitle").textContent = "Объект не выбран";
+  document.getElementById("objectSubtitle").textContent = "Кликните объект на карте";
+  document.getElementById("attrs").innerHTML = '<tr><td>Состояние</td><td>Ожидание выбора</td></tr>';
 }
-document.getElementById("closePanel").onclick=resetSelection;
 
-const searchInput=document.getElementById("searchInput"), results=document.getElementById("results");
-function renderResults(q){
-  q=q.trim().toLowerCase();
-  if(!q){results.innerHTML="";return}
-  try{
-    const arr=DATA.filter(o=>[o.name,o.id,o.object_type,o.voltage,o.fed_from,o.parent_id,o.balance,o.power_kva,o.inventory_no,o.description].join(" ").toLowerCase().includes(q)).slice(0,12);
-    results.innerHTML=arr.length?arr.map(o=>`<div class="result" data-id="${escAttr(o.id)}">${esc(o.name)} <span style="color:#7f8a95">· ${esc(o.voltage||o.object_type||"")}</span></div>`).join("")
-      :'<div style="padding:8px;color:#89939d;font-size:12px">Ничего не найдено</div>';
-    results.querySelectorAll(".result").forEach(el=>el.onclick=()=>selectObject(el.dataset.id));
-  }catch(err){
-    console.error("Ошибка поиска:", err);
-    results.innerHTML='<div style="padding:8px;color:#ff8080;font-size:12px">Ошибка поиска</div>';
-  }
-}
-searchInput.addEventListener("input",e=>renderResults(e.target.value));
+function esc(v) { return String(v ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[m])); }
 
-function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
-function escAttr(v){return esc(v)}
+map.on("zoomend", () => {
+  DATA.forEach(o => {
+    if (o.geometry && o.geometry.type === "Point") {
+      const l = layers.get(o.id);
+      if (l && l.setRadius) l.setRadius(selectedId === o.id ? getNodeRadius(o) + 4 : getNodeRadius(o));
+    }
+  });
+});
 
-loadGeoJSON().catch(err=>{
+loadGeoJSON().catch(err => {
   console.error(err);
-  document.getElementById("objectTitle").textContent="Ошибка загрузки данных";
-  document.getElementById("objectSubtitle").textContent=err.message;
   document.getElementById("statusDot").classList.add("err");
-  document.getElementById("statusText").textContent="Ошибка: "+err.message;
+  document.getElementById("statusText").textContent = "Ошибка загрузки GeoJSON";
 });
 </script>
 </body>

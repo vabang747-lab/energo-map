@@ -1,753 +1,337 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Энергоузел Шиели — диспетчерская ГИС</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<style>
-:root{
-  --bg:#171b20;--panel:#20262d;--panel2:#282f37;--border:#3b444e;
-  --text:#e9edf1;--muted:#9ca7b2;--accent:#39a9ff;--danger:#ff5d5d;
-  --green:#48d597;--yellow:#ffd34d;--orange:#ff9f43;
-}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ГИС Диспетчер — Энергоузел</title>
+    
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Turf.js для пространственного анализа -->
+    <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
 
-body.light-theme {
-  --bg:#f4f6f8;--panel:#ffffff;--panel2:#eef2f5;--border:#cfd8dc;
-  --text:#1c252e;--muted:#637381;--accent:#007bff;--danger:#e53935;
-  --green:#2e7d32;--yellow:#f57f17;--orange:#d84315;
-}
+    <style>
+        :root {
+            --bg-dark: #121824;
+            --panel-bg: rgba(22, 30, 46, 0.92);
+            --border-color: rgba(255, 255, 255, 0.12);
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-gold: #f59e0b;
+            --text-main: #f3f4f6;
+            --text-sub: #9ca3af;
+        }
 
-*{box-sizing:border-box}
-html,body,#map{height:100%;width:100%;margin:0}
-body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);overflow:hidden;transition:background .2s,color .2s}
-#map{position:absolute;inset:0}
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+        body { background: var(--bg-dark); color: var(--text-main); overflow: hidden; height: 100vh; width: 100vw; }
 
-/* Настройка контролов Leaflet */
-.leaflet-top.leaflet-right { top: 14px; right: 425px; }
-.leaflet-control-layers {
-  background: rgba(32, 38, 45, 0.95) !important;
-  color: var(--text) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 7px !important;
-  box-shadow: 0 4px 18px rgba(0,0,0,.28) !important;
-}
-body.light-theme .leaflet-control-layers { background: rgba(255, 255, 255, 0.95) !important; }
-.leaflet-control-layers-expanded { padding: 8px 12px; }
-.leaflet-control-layers label { margin: 5px 0; font-size: 12px; cursor: pointer; }
-.leaflet-control-attribution { background: rgba(20,24,28,.82) !important; color: #aeb8c2; }
-.leaflet-control-attribution a { color: #7fc7ff; }
+        #map { height: 100vh; width: 100vw; z-index: 1; }
 
-/* Шапка сайта */
-.topbar {
-  position: absolute; z-index: 1000;
-  left: 14px; top: 14px; right: 425px;
-  height: 52px; display: flex; align-items: center; gap: 10px;
-  padding: 8px 14px; background: rgba(25,30,35,.95);
-  border: 1px solid var(--border); border-radius: 7px;
-  box-shadow: 0 4px 18px rgba(0,0,0,.28);
-}
-body.light-theme .topbar { background: rgba(255,255,255,.95); }
-.brand { font-weight: 700; letter-spacing: .5px; white-space: nowrap; font-size: 14px; }
-.status { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; margin-left: auto; }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
-.dot.err { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+        /* Плавающая верхняя панель управления */
+        .top-bar {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            z-index: 1000;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
 
-/* Кнопки в шапке */
-.btn-ui {
-  display: flex; align-items: center; gap: 6px;
-  background: var(--panel2); border: 1px solid var(--border); color: var(--text);
-  padding: 6px 10px; border-radius: 5px; cursor: pointer;
-  font-size: 12px; font-weight: 600; transition: all .15s; white-space: nowrap;
-}
-.btn-ui:hover { background: var(--border); color: var(--accent); }
-.btn-ui.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .search-trigger {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(8px);
+            padding: 10px 16px;
+            border-radius: 8px;
+            color: var(--text-sub);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: all 0.2s ease;
+        }
 
-/* Поиск */
-.search {
-  position: absolute; z-index: 1001;
-  top: 74px; left: 14px; width: 340px;
-  background: rgba(25,30,35,.95); border: 1px solid var(--border);
-  border-radius: 7px; padding: 8px; box-shadow: 0 4px 18px rgba(0,0,0,.25);
-}
-body.light-theme .search { background: rgba(255,255,255,.95); }
-.search input {
-  width: 100%; background: var(--panel); border: 1px solid var(--border);
-  color: var(--text); padding: 8px 10px; border-radius: 5px; outline: none; font-size: 12px;
-}
-.results { max-height: 220px; overflow-y: auto; margin-top: 6px; display: none; }
-.result { padding: 7px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
-.result:hover { background: var(--panel2); }
-.result-type { font-size: 10px; color: var(--muted); border: 1px solid var(--border); padding: 1px 4px; border-radius: 3px; }
+        .search-trigger:hover { border-color: var(--accent-blue); color: var(--text-main); }
+        .search-trigger kbd {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: var(--text-main);
+        }
 
-/* Боковая панель */
-.sidebar {
-  position: absolute; z-index: 1100;
-  top: 0; right: 0; width: 410px; height: 100%;
-  background: rgba(27,32,38,.97); border-left: 1px solid var(--border);
-  box-shadow: -6px 0 22px rgba(0,0,0,.3); display: flex; flex-direction: column;
-}
-body.light-theme .sidebar { background: rgba(255,255,255,.97); }
-.sidebar-head { padding: 16px 18px 12px; border-bottom: 1px solid var(--border); }
-.kicker { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--accent); font-weight: 700; }
-.title { font-size: 17px; font-weight: 700; margin-top: 4px; line-height: 1.25; }
-.subtitle { font-size: 11px; color: var(--muted); margin-top: 4px; }
-.sidebar-body { padding: 14px 16px; overflow-y: auto; flex: 1; }
-.section { margin-bottom: 18px; }
-.section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 0 0 8px; }
+        /* Виджет баланса / Аналитики (Справа вверху) */
+        .analytics-card {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            z-index: 1000;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+            padding: 16px;
+            border-radius: 12px;
+            width: 300px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
 
-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-td { padding: 6px 4px; border-bottom: 1px solid var(--border); vertical-align: top; }
-td:first-child { color: var(--muted); width: 42%; }
-td:last-child { font-weight: 600; color: var(--text); word-break: break-word; }
+        .analytics-card h4 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-sub); margin-bottom: 12px; }
+        .metric-group { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+        .metric-value { font-weight: 600; }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+            margin-top: 8px;
+            width: 100%;
+        }
+        .status-normal { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); border: 1px solid var(--accent-green); }
+        .status-alert { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); }
 
-.close { float: right; background: none; border: 0; color: var(--muted); font-size: 20px; cursor: pointer; }
+        /* Поисковое окно (Spotlight Modal) */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 10vh;
+        }
 
-.related-list { list-style: none; padding: 0; margin: 0; }
-.related-item {
-  padding: 6px 8px; border-radius: 5px; font-size: 12px; background: var(--panel2);
-  border: 1px solid var(--border); margin-bottom: 5px; cursor: pointer; display: flex;
-  justify-content: space-between; align-items: center; transition: background .15s;
-}
-.related-item:hover { background: var(--border); color: var(--accent); }
+        .search-modal {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            width: 90%;
+            max-width: 600px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+        }
 
-/* Легенда и Фильтры */
-.legend {
-  position: absolute; z-index: 1000; bottom: 18px; left: 14px;
-  background: rgba(25,30,35,.94); border: 1px solid var(--border);
-  border-radius: 6px; padding: 10px 12px; font-size: 11px; box-shadow: 0 4px 16px rgba(0,0,0,.25);
-  user-select: none; width: 230px; transition: all .2s;
-}
-body.light-theme .legend { background: rgba(255,255,255,.94); }
-.legend-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
-.legend-header span { font-weight: 700; color: var(--text); }
-.legend-toggle { cursor: pointer; font-weight: 700; color: var(--accent); padding: 0 4px; }
-.legend-body { display: flex; flex-direction: column; gap: 4px; }
-.legend-row { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.legend-row input[type="checkbox"] { cursor: pointer; accent-color: var(--accent); }
-.legend-count { margin-left: auto; font-size: 10px; color: var(--muted); font-weight: 600; }
-.sw { width: 22px; height: 4px; border-radius: 3px; }
-.node { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid #fff; }
+        .search-input-wrapper {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
 
-/* Фокус и подсказки */
-.focus-note {
-  position: absolute; z-index: 1000;
-  top: 74px; right: 425px;
-  background: rgba(25,30,35,.94); border: 1px solid var(--border);
-  padding: 8px 12px; border-radius: 6px; color: var(--text); font-size: 11px;
-  font-weight: 600; display: none; box-shadow: 0 4px 16px rgba(0,0,0,.25);
-}
-body.light-theme .focus-note { background: rgba(255,255,255,.94); }
+        .search-input-wrapper input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #fff;
+            font-size: 18px;
+            width: 100%;
+            margin-left: 10px;
+        }
 
-/* Плашка результатов линейки */
-.measure-box {
-  position: absolute; z-index: 1000; bottom: 18px; left: 260px;
-  background: rgba(25,30,35,.94); border: 1px solid var(--accent);
-  padding: 8px 12px; border-radius: 6px; color: #fff; font-size: 12px; font-weight: 600;
-  display: none; box-shadow: 0 4px 16px rgba(0,0,0,.3);
-}
+        .search-results { max-height: 360px; overflow-y: auto; padding: 8px 0; }
+        .result-item {
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
 
-@media(max-width: 900px){
-  .sidebar { width: 340px; }
-  .topbar { right: 355px; }
-  .focus-note { right: 355px; }
-  .leaflet-top.leaflet-right { right: 355px; }
-}
-</style>
+        .result-item:hover { background: rgba(59, 130, 246, 0.15); }
+        .result-title { font-weight: 600; font-size: 14px; }
+        .result-sub { font-size: 12px; color: var(--text-sub); }
+
+        /* Нижний тулбар действий */
+        .bottom-actions {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(8px);
+            padding: 6px 12px;
+            border-radius: 30px;
+            display: flex;
+            gap: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .btn-action {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-action:hover { background: rgba(255,255,255,0.1); }
+        .btn-primary { background: var(--accent-blue); font-weight: 600; }
+        .btn-primary:hover { background: #2563eb; }
+    </style>
 </head>
 <body>
-<div id="map"></div>
 
-<div class="topbar">
-  <div class="brand">ЭНЕРГОУЗЕЛ ШИЕЛИ / ГИС</div>
-  <button class="btn-ui" id="fitAllBtn" title="Сбросить масштаб и показать весь район">🌐 Весь район</button>
-  <button class="btn-ui" id="measureBtn" title="Включить инструмент измерения протяженности">📏 Линейка</button>
-  <button class="btn-ui" id="themeBtn" title="Переключить тему интерфейса">🌙 Тема</button>
-  <div class="status"><span class="dot" id="statusDot"></span> <span id="statusText">Загрузка данных...</span></div>
-</div>
+    <div id="map"></div>
 
-<div class="search">
-  <input id="searchInput" placeholder="Поиск ПС, РП, фидера, ТП или линии..." autocomplete="off">
-  <div id="searchResults" class="results"></div>
-</div>
-
-<div id="focusNote" class="focus-note"></div>
-<div id="measureBox" class="measure-box">Дистанция: <span id="measureDist">0 м</span></div>
-
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-head">
-    <button class="close" id="closePanel" title="Закрыть">×</button>
-    <div class="kicker">Карточка объекта</div>
-    <div class="title" id="objectTitle">Объект не выбран</div>
-    <div class="subtitle" id="objectSubtitle">Кликните объект на карте</div>
-  </div>
-  <div class="sidebar-body">
-    <div class="section">
-      <h3>Параметры</h3>
-      <table id="attrs"><tr><td>Состояние</td><td>Ожидание выбора</td></tr></table>
+    <!-- Верхняя панель поиска -->
+    <div class="top-bar">
+        <div class="search-trigger" onclick="openSearch()">
+            🔍 <span>Быстрый поиск по сети...</span>
+            <kbd>Ctrl K</kbd>
+        </div>
     </div>
-    <div class="section" id="relatedSection" style="display:none;">
-      <h3>Связанные объекты (сети/линии)</h3>
-      <ul class="related-list" id="relatedList"></ul>
+
+    <!-- Сводка баланса / Аналитика выбранного объекта -->
+    <div class="analytics-card" id="analyticsPanel">
+        <h4>⚡ Баланс Энергии (Выбран ТП-102)</h4>
+        <div class="metric-group">
+            <span style="color:var(--text-sub)">Поступление (Приход):</span>
+            <span class="metric-value" id="valIn">14 500 кВт·ч</span>
+        </div>
+        <div class="metric-group">
+            <span style="color:var(--text-sub)">Отпуск (Расход):</span>
+            <span class="metric-value" id="valOut">13 820 кВт·ч</span>
+        </div>
+        <div class="metric-group">
+            <span style="color:var(--text-sub)">Фактические потери:</span>
+            <span class="metric-value" id="valLoss">680 кВт·ч (4.69%)</span>
+        </div>
+        <div id="statusBadge" class="status-badge status-normal">✅ Потери в пределах нормы (до 5%)</div>
     </div>
-  </div>
-</aside>
 
-<div class="legend" id="legendBox">
-  <div class="legend-header">
-    <span>КЛАСС НАПРЯЖЕНИЯ</span>
-    <span class="legend-toggle" id="legendToggle" title="Свернуть/Развернуть">—</span>
-  </div>
-  <div class="legend-body" id="legendBody">
-    <label class="legend-row">
-      <input type="checkbox" data-voltage="110" checked>
-      <span class="sw" style="background:#ff3b30;height:5px"></span> 110 кВ
-      <span class="legend-count" id="count-110">0</span>
-    </label>
-    <label class="legend-row">
-      <input type="checkbox" data-voltage="35" checked>
-      <span class="sw" style="background:#ff9f43;height:4px"></span> 35 кВ
-      <span class="legend-count" id="count-35">0</span>
-    </label>
-    <label class="legend-row">
-      <input type="checkbox" data-voltage="10" checked>
-      <span class="sw" style="background:#36a8ff;height:4px"></span> 10(6) кВ
-      <span class="legend-count" id="count-10">0</span>
-    </label>
-    <label class="legend-row">
-      <input type="checkbox" data-voltage="0.4" checked>
-      <span class="sw" style="background:#b57cff;height:3px"></span> 0,4 кВ
-      <span class="legend-count" id="count-0.4">0</span>
-    </label>
-    <label class="legend-row">
-      <input type="checkbox" data-voltage="substation" checked>
-      <span class="node" style="background:#e34b4b"></span> ПС / РП
-      <span class="legend-count" id="count-substation">0</span>
-    </label>
-    <label class="legend-row">
-      <input type="checkbox" data-voltage="tp" checked>
-      <span class="node" style="background:#ffd34d"></span> ТП / КТП
-      <span class="legend-count" id="count-tp">0</span>
-    </label>
-  </div>
-</div>
+    <!-- Модальное окно поиска (Spotlight) -->
+    <div class="modal-overlay" id="searchModal" onclick="closeSearch(event)">
+        <div class="search-modal" onclick="event.stopPropagation()">
+            <div class="search-input-wrapper">
+                🔎 <input type="text" id="searchInput" placeholder="Введите № ТП, имя фидера или опоры..." oninput="onSearchInput(this.value)">
+            </div>
+            <div class="search-results" id="searchResults">
+                <div class="result-item" onclick="flyToObject(44.18, 66.75, 'ТП-102 Центр')">
+                    <div>
+                        <div class="result-title">ТП-102 (Трансформаторная подстанция)</div>
+                        <div class="result-sub">Фидер Ф-10 • 10/0.4 кВ</div>
+                    </div>
+                    <span style="color:var(--accent-blue); font-size: 12px;">Перейти ➔</span>
+                </div>
+                <div class="result-item" onclick="flyToObject(44.19, 66.77, 'ЛЭП-10кВ Ф-10')">
+                    <div>
+                        <div class="result-title">ЛЭП 10 кВ (Фидер №10)</div>
+                        <div class="result-sub">Протяженность: 4.2 км • Опор: 48</div>
+                    </div>
+                    <span style="color:var(--accent-blue); font-size: 12px;">Перейти ➔</span>
+                </div>
+            </div>
+        </div>
+    </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-let DATA = [];
-const DATA_URL = "./data_synchronized.geojson";
-const layers = new Map();
-const objects = new Map();
-let selectedId = null;
+    <!-- Нижняя панель быстрых действий -->
+    <div class="bottom-actions">
+        <button class="btn-action" onclick="toggleRuler()">📏 Линейка</button>
+        <button class="btn-action" onclick="exportData()">📥 Экспорт CSV</button>
+        <button class="btn-action btn-primary" onclick="addInspectionNote()">📝 Добавить отметку</button>
+    </div>
 
-const filters = {
-  "110": true,
-  "35": true,
-  "10": true,
-  "0.4": true,
-  "substation": true,
-  "tp": true
-};
+    <script>
+        // 初始化 Инициализация карты
+        const map = L.map('map', { zoomControl: false }).setView([44.1833, 66.7500], 14); // Координаты Шиели
 
-const EXPLICIT_CONNECTIONS = {
-  "пс «шиели»": [
-    "кызылту", "аэропорт", "райцентр", "залинейный",
-    "шиелы от пс \"алмалы\"", "яч-13", "црп ввод-1",
-    "уп", "л-95", "л-36", "35-кв", "вл-110 кв"
-  ]
-};
+        // Темная подложка карт (CartoDB Dark Matter)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            subdomains: 'abcd',
+            attribution: '&copy; OpenStreetMap &copy; CARTO'
+        }).addTo(map);
 
-const map = L.map("map", {zoomControl: true, preferCanvas: true}).setView([44.18, 66.73], 14);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 20, attribution: "© OpenStreetMap"});
-const esri = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {maxZoom: 20, attribution: "© Esri"});
-const labels = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {maxZoom: 20, attribution: "© CARTO"});
-
-osm.addTo(map);
-
-L.control.layers(
-  {"Стандартная схема": osm, "Спутник": esri, "Гибрид": L.layerGroup([esri, labels])},
-  null,
-  {collapsed: false, position: "topright"}
-).addTo(map);
-
-L.control.scale({ imperial: false, metric: true, position: "bottomright" }).addTo(map);
-
-function getVoltageCategory(o) {
-  const t = String(o.type || o.object_type || "").toLowerCase();
-  const v = String(o.voltage || "").toLowerCase();
-
-  if (t === "substation" || t === "rp") return "substation";
-  if (t === "tp" || t === "ktp" || t === "transformer") return "tp";
-  if (t === "line04" || t === "input04" || v.includes("0.4") || v.includes("0,4")) return "0.4";
-  if (t === "line110" || v.includes("110")) return "110";
-  if (t === "line35" || v.includes("35")) return "35";
-  return "10";
-}
-
-function getNodeRadius(o, zoom) {
-  const z = zoom || map.getZoom();
-  let base = 6;
-  const cat = getVoltageCategory(o);
-  if (cat === "substation") base = 11;
-  else if (cat === "tp") base = 8;
-  
-  if (z <= 11) return Math.max(3, base - 4.5);
-  if (z === 12) return Math.max(3, base - 3.5);
-  if (z === 13) return Math.max(4, base - 2);
-  if (z === 14) return base;
-  if (z === 15) return base + 2;
-  return base + 4;
-}
-
-function styleForObject(o) {
-  const cat = getVoltageCategory(o);
-  switch (cat) {
-    case "substation": return {color: "#e34b4b", fillColor: "#e34b4b", radius: getNodeRadius(o), weight: 3};
-    case "tp": return {color: "#ffd34d", fillColor: "#ffd34d", radius: getNodeRadius(o), weight: 2};
-    case "110": return {color: "#ff3b30", weight: 6, opacity: .95};
-    case "35": return {color: "#ff9f43", weight: 5, opacity: .95};
-    case "10": return {color: "#36a8ff", weight: 5, opacity: .95};
-    case "0.4": return {color: "#b57cff", weight: 3, opacity: 0.95, dashArray: "6 5"};
-    default: return {color: "#36a8ff", weight: 3, opacity: 0.95};
-  }
-}
-
-function makeFeatureLayer(o) {
-  const g = o.geometry;
-  const s = styleForObject(o);
-  if (!g) return null;
-
-  let layer;
-  if (g.type === "Point") {
-    layer = L.circleMarker([g.coordinates[1], g.coordinates[0]], {
-      radius: s.radius, color: "#111", fillColor: s.fillColor || s.color, fillOpacity: 0.9, weight: 1.5
-    });
-  } else {
-    layer = L.geoJSON(g, { style: () => s });
-  }
-
-  layer.on("click", e => { 
-    if (isMeasuring) return;
-    L.DomEvent.stopPropagation(e); 
-    selectObject(o.id); 
-  });
-
-  /* Подсветка при наведении мыши (Hover Effect) */
-  layer.on("mouseover", () => {
-    if (selectedId !== o.id && layer.setStyle) {
-      layer.setStyle({ weight: (s.weight || 2) + 2, opacity: 1 });
-    }
-  });
-
-  layer.on("mouseout", () => {
-    if (selectedId !== o.id) {
-      refreshAll();
-    }
-  });
-
-  layer.bindTooltip(o.name, { sticky: true, opacity: .95 });
-  return layer;
-}
-
-/* Строгая функция привязки линий к узлу */
-function isLineConnectedToParent(childObj, parentObj) {
-  if (!childObj || !parentObj) return false;
-  if (childObj.id === parentObj.id) return false;
-
-  const parentCat = getVoltageCategory(parentObj);
-  if (parentCat !== "substation" && parentCat !== "tp") return false;
-
-  const parentName = String(parentObj.name || "").toLowerCase().trim();
-  const parentId = String(parentObj.id || "").toLowerCase().trim();
-  const childName = String(childObj.name || "").toLowerCase().trim();
-  const pId = String(childObj.parent_id || "").toLowerCase().trim();
-  const fedFrom = String(childObj.fed_from || "").toLowerCase().trim();
-
-  // 1. Прямая привязка по parent_id или fed_from
-  if (pId && (pId === parentId || pId === parentName)) return true;
-  if (fedFrom && (fedFrom === parentId || fedFrom === parentName)) return true;
-
-  // 2. Проверка по жесткому словарю EXPLICIT_CONNECTIONS
-  for (const [pKey, childKeywords] of Object.entries(EXPLICIT_CONNECTIONS)) {
-    if (parentName.includes(pKey) || parentId.includes(pKey)) {
-      if (childKeywords.some(keyword => childName.includes(keyword))) {
-        return true;
-      }
-    }
-  }
-
-  // 3. Проверка для линий 0,4 кВ и ТП
-  if (parentCat === "tp") {
-    const tpNumMatch = parentName.match(/\d+/);
-    if (tpNumMatch) {
-      const tpNum = tpNumMatch[0];
-      const childHasTpNum = childName.includes("тп-" + tpNum) || childName.includes("тп " + tpNum) || childName.includes("тп" + tpNum);
-      if (childHasTpNum) return true;
-    }
-  }
-
-  return false;
-}
-
-async function loadGeoJSON() {
-  const response = await fetch(DATA_URL, {cache: "no-store"});
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const geojson = await response.json();
-
-  DATA = (geojson.features || []).map((feature, i) => {
-    const p = feature.properties || {};
-    return {
-      ...p,
-      id: String(p.id || `geo_${String(i).padStart(4, "0")}`),
-      parent_id: p.parent_id ? String(p.parent_id) : null,
-      name: p.name || `Объект ${i+1}`,
-      type: p.object_type || p.type || (feature.geometry && feature.geometry.type ? feature.geometry.type.toLowerCase() : "point"),
-      geometry: feature.geometry
-    };
-  });
-
-  DATA.forEach(o => objects.set(o.id, o));
-  renderGeoJSON();
-  updateCounts();
-  document.getElementById("statusText").textContent = `GeoJSON: ${DATA.length} объектов`;
-}
-
-function updateCounts() {
-  const counts = { "110": 0, "35": 0, "10": 0, "0.4": 0, "substation": 0, "tp": 0 };
-  DATA.forEach(o => {
-    const cat = getVoltageCategory(o);
-    if (counts[cat] !== undefined) counts[cat]++;
-  });
-  for (const [key, val] of Object.entries(counts)) {
-    const el = document.getElementById(`count-${key}`);
-    if (el) el.textContent = val;
-  }
-}
-
-function renderGeoJSON() {
-  DATA.forEach(o => {
-    const layer = makeFeatureLayer(o);
-    if (!layer) return;
-    layers.set(o.id, layer);
-    layer.addTo(map);
-  });
-
-  fitAll();
-}
-
-function fitAll() {
-  const allLayers = Array.from(layers.values());
-  if (allLayers.length) {
-    const group = L.featureGroup(allLayers);
-    if (group.getBounds().isValid()) map.fitBounds(group.getBounds().pad(.05));
-  }
-}
-
-document.getElementById("fitAllBtn").onclick = () => {
-  resetSelection();
-  fitAll();
-};
-
-function refreshAll() {
-  const selectedObj = selectedId ? objects.get(selectedId) : null;
-
-  DATA.forEach(o => {
-    const l = layers.get(o.id);
-    if (!l) return;
-
-    const cat = getVoltageCategory(o);
-    const isVisible = filters[cat] !== false;
-
-    if (isVisible) {
-      if (!map.hasLayer(l)) l.addTo(map);
-
-      const s = styleForObject(o);
-      const isSelected = selectedId === o.id;
-      const isConnectedLine = selectedObj && isLineConnectedToParent(o, selectedObj);
-
-      if (l.setStyle) {
-        if (isSelected || isConnectedLine) {
-          l.setStyle({
+        // Пример размещения маркера ТП с интерактивным балансом
+        const tpMarker = L.circleMarker([44.1833, 66.7500], {
+            radius: 9,
+            fillColor: "#3b82f6",
+            color: "#ffffff",
+            weight: 2,
             opacity: 1,
-            color: isConnectedLine ? "#ff3838" : s.color,
-            weight: (s.weight || 2) + 3
-          });
-        } else if (selectedId) {
-          l.setStyle({
-            opacity: 0.2,
-            color: s.color,
-            weight: s.weight
-          });
-        } else {
-          l.setStyle({
-            opacity: 0.9,
-            color: s.color,
-            weight: s.weight
-          });
+            fillOpacity: 0.9
+        }).addTo(map);
+
+        tpMarker.bindPopup(`
+            <b style="color:#000">ТП-102 Центр</b><br>
+            <span style="color:#666">Мощность: 250 кВА</span><br>
+            <button onclick="updateAnalytics('ТП-102', 14500, 13820, 4.69)" style="margin-top:6px; padding:4px 8px; cursor:pointer;">
+                Загрузить баланс
+            </button>
+        `);
+
+        // Показ модального окна поиска
+        function openSearch() {
+            document.getElementById('searchModal').style.display = 'flex';
+            document.getElementById('searchInput').focus();
         }
 
-        if (o.geometry && o.geometry.type === "Point" && l.setRadius) {
-          l.setRadius(isSelected ? getNodeRadius(o) + 4 : getNodeRadius(o));
+        function closeSearch(e) {
+            document.getElementById('searchModal').style.display = 'none';
         }
-      }
-    } else {
-      if (map.hasLayer(l)) map.removeLayer(l);
-    }
-  });
-}
 
-/* Поиск */
-const searchInput = document.getElementById("searchInput");
-const searchResults = document.getElementById("searchResults");
+        // Горячая клавиша Ctrl + K
+        window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                openSearch();
+            }
+            if (e.key === 'Escape') {
+                closeSearch();
+            }
+        });
 
-searchInput.addEventListener("input", (e) => {
-  const q = e.target.value.trim().toLowerCase();
-  if (q.length < 2) {
-    searchResults.style.display = "none";
-    searchResults.innerHTML = "";
-    return;
-  }
+        // Перелет к выбранному объекту
+        function flyToObject(lat, lng, title) {
+            closeSearch();
+            map.flyTo([lat, lng], 17, { duration: 1.5 });
+        }
 
-  const matches = DATA.filter(o => String(o.name || "").toLowerCase().includes(q)).slice(0, 10);
+        // Динамическое обновление виджета баланса
+        function updateAnalytics(name, valIn, valOut, lossPct) {
+            const lossVal = valIn - valOut;
+            document.getElementById('valIn').innerText = valIn.toLocaleString() + ' кВт·ч';
+            document.getElementById('valOut').innerText = valOut.toLocaleString() + ' кВт·ч';
+            document.getElementById('valLoss').innerText = `${lossVal.toLocaleString()} кВт·ч (${lossPct}%)`;
 
-  if (matches.length === 0) {
-    searchResults.style.display = "block";
-    searchResults.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--muted)">Ничего не найдено</div>';
-    return;
-  }
+            const badge = document.getElementById('statusBadge');
+            if (lossPct > 5.0) {
+                badge.className = 'status-badge status-alert';
+                badge.innerText = '⚠️ Превышение нормы потерь (>5%)';
+            } else {
+                badge.className = 'status-badge status-normal';
+                badge.innerText = '✅ Потери в пределах нормы (до 5%)';
+            }
+        }
 
-  searchResults.innerHTML = matches.map(m => `
-    <div class="result" data-id="${esc(m.id)}">
-      <span>${esc(m.name)}</span>
-      <span class="result-type">${esc(m.voltage || m.type || "Узел")}</span>
-    </div>
-  `).join("");
-  searchResults.style.display = "block";
+        // Заглушки под экспорт и инструмент линейки
+        function exportData() {
+            alert('Экспорт данных реестра и геометрии в CSV запущен...');
+        }
 
-  searchResults.querySelectorAll(".result").forEach(el => {
-    el.onclick = () => {
-      selectObject(el.dataset.id);
-      searchResults.style.display = "none";
-    };
-  });
-});
+        function toggleRuler() {
+            alert('Режим измерения расстояний включен. Кликайте по карте для расчета метрики.');
+        }
 
-/* Клавиша ESC для отмены и сброса */
-window.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    resetSelection();
-    searchResults.style.display = "none";
-    if (isMeasuring) {
-      measureBtn.click();
-    }
-  }
-});
-
-/* Легенда */
-document.querySelectorAll('.legend input[type="checkbox"]').forEach(chk => {
-  chk.addEventListener('change', (e) => {
-    const v = e.target.dataset.voltage;
-    filters[v] = e.target.checked;
-    refreshAll();
-  });
-});
-
-const legendToggle = document.getElementById("legendToggle");
-const legendBody = document.getElementById("legendBody");
-let legendCollapsed = false;
-
-legendToggle.onclick = () => {
-  legendCollapsed = !legendCollapsed;
-  legendBody.style.display = legendCollapsed ? "none" : "flex";
-  legendToggle.textContent = legendCollapsed ? "+" : "—";
-};
-
-/* Линейка */
-let isMeasuring = false;
-let measurePoints = [];
-let measurePolyline = null;
-let measureMarkers = [];
-const measureBtn = document.getElementById("measureBtn");
-const measureBox = document.getElementById("measureBox");
-const measureDist = document.getElementById("measureDist");
-
-measureBtn.onclick = () => {
-  isMeasuring = !isMeasuring;
-  measureBtn.classList.toggle("active", isMeasuring);
-  if (isMeasuring) {
-    resetSelection();
-    measurePoints = [];
-    measureBox.style.display = "block";
-    measureDist.textContent = "Кликните по карте...";
-  } else {
-    clearMeasurement();
-  }
-};
-
-function clearMeasurement() {
-  measureBox.style.display = "none";
-  if (measurePolyline) map.removeLayer(measurePolyline);
-  measureMarkers.forEach(m => map.removeLayer(m));
-  measurePoints = [];
-  measureMarkers = [];
-  measurePolyline = null;
-}
-
-map.on("click", (e) => {
-  if (!isMeasuring) {
-    resetSelection();
-    return;
-  }
-
-  measurePoints.push(e.latlng);
-  const marker = L.circleMarker(e.latlng, { radius: 5, color: "#39a9ff", fillColor: "#fff", fillOpacity: 1 }).addTo(map);
-  measureMarkers.push(marker);
-
-  if (!measurePolyline) {
-    measurePolyline = L.polyline(measurePoints, { color: "#39a9ff", weight: 3, dashArray: "5 5" }).addTo(map);
-  } else {
-    measurePolyline.setLatLngs(measurePoints);
-  }
-
-  let totalDist = 0;
-  for (let i = 0; i < measurePoints.length - 1; i++) {
-    totalDist += measurePoints[i].distanceTo(measurePoints[i + 1]);
-  }
-
-  measureDist.textContent = totalDist > 1000 ? (totalDist / 1000).toFixed(2) + " км" : Math.round(totalDist) + " м";
-});
-
-/* Тема */
-const themeBtn = document.getElementById("themeBtn");
-let isLightTheme = false;
-
-themeBtn.onclick = () => {
-  isLightTheme = !isLightTheme;
-  document.body.classList.toggle("light-theme", isLightTheme);
-  themeBtn.textContent = isLightTheme ? "☀️ Тема" : "🌙 Тема";
-  if (isLightTheme) {
-    map.addLayer(osm);
-    map.removeLayer(esri);
-  }
-};
-
-function selectObject(id) {
-  const o = objects.get(id);
-  if (!o) return;
-
-  selectedId = id;
-  refreshAll();
-
-  const layer = layers.get(id);
-  if (layer && map.hasLayer(layer)) {
-    if (layer.flyTo) {
-      map.flyTo(layer.getLatLng(), 16);
-    } else if (layer.getBounds && layer.getBounds().isValid()) {
-      map.flyToBounds(layer.getBounds().pad(.6), { maxZoom: 17 });
-    }
-  }
-
-  showCard(o);
-  document.getElementById("focusNote").style.display = "block";
-  document.getElementById("focusNote").textContent = "ФОКУС: " + o.name;
-}
-
-function resetSelection() {
-  selectedId = null;
-  refreshAll();
-  document.getElementById("focusNote").style.display = "none";
-  clearCard();
-}
-
-document.getElementById("closePanel").onclick = resetSelection;
-
-/* Полная функция карточки с координатами и восстановленным блоком связанных объектов */
-function showCard(o) {
-  document.getElementById("objectTitle").textContent = o.name;
-  document.getElementById("objectSubtitle").textContent = (o.object_type || o.type || "ОБЪЕКТ").toUpperCase();
-  
-  const parent = o.parent_id ? objects.get(o.parent_id) : null;
-
-  // Формируем координаты для копирования
-  let coordsText = "—";
-  if (o.geometry) {
-    if (o.geometry.type === "Point") {
-      const [lng, lat] = o.geometry.coordinates;
-      coordsText = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-    } else if (o.geometry.coordinates && o.geometry.coordinates.length > 0) {
-      const firstPt = o.geometry.type === "LineString" ? o.geometry.coordinates[0] : o.geometry.coordinates[0][0];
-      coordsText = `${firstPt[1].toFixed(6)}, ${firstPt[0].toFixed(6)}`;
-    }
-  }
-
-  const copyBtn = coordsText !== "—" 
-    ? `<button onclick="navigator.clipboard.writeText('${coordsText}'); alert('Координаты скопированы!');" style="cursor:pointer;padding:1px 5px;font-size:10px;margin-left:6px;border:1px solid var(--border);border-radius:3px;background:var(--panel);">📋 Копировать</button>` 
-    : '';
-
-  // Расчет общей протяженности отходящих линий
-  let totalConnectedLength = 0;
-  const connectedObjects = [];
-
-  DATA.forEach(child => {
-    if (isLineConnectedToParent(child, o)) {
-      connectedObjects.push(child);
-      if (child.length) {
-        totalConnectedLength += parseFloat(child.length) || 0;
-      }
-    }
-  });
-
-  const rows = [
-    ["ID", o.id],
-    ["Тип объекта", o.object_type || o.type || "—"],
-    ["Напряжение", o.voltage || "—"],
-    ["Запитано от", parent ? parent.name : (o.fed_from || "—")],
-    ["Мощность", o.power_kva ? o.power_kva + " кВА" : "—"],
-    ["Длина объекта", o.length ? o.length + " км" : "—"],
-    ["Координаты", coordsText + copyBtn],
-    ["Описание", o.description || "—"]
-  ];
-
-  if (totalConnectedLength > 0) {
-    rows.push(["Суммарная длина ВЛ", totalConnectedLength.toFixed(2) + " км"]);
-  }
-
-  document.getElementById("attrs").innerHTML = rows.map(r => `<tr><td>${esc(r[0])}</td><td>${r[1]}</td></tr>`).join("");
-
-  // ВОССТАНОВЛЕНИЕ: Заполнение блока связанных объектов
-  const relatedSec = document.getElementById("relatedSection");
-  const relatedList = document.getElementById("relatedList");
-
-  if (connectedObjects.length > 0) {
-    relatedSec.style.display = "block";
-    relatedList.innerHTML = connectedObjects.map(c => `
-      <li class="related-item" onclick="selectObject('${esc(c.id)}')">
-        <span>${esc(c.name)}</span>
-        <span class="result-type">${esc(c.voltage || "0.4 кВ")}</span>
-      </li>
-    `).join("");
-  } else {
-    relatedSec.style.display = "none";
-    relatedList.innerHTML = "";
-  }
-}
-
-function clearCard() {
-  document.getElementById("objectTitle").textContent = "Объект не выбран";
-  document.getElementById("objectSubtitle").textContent = "Кликните объект на карте";
-  document.getElementById("attrs").innerHTML = '<tr><td>Состояние</td><td>Ожидание выбора</td></tr>';
-  document.getElementById("relatedSection").style.display = "none";
-  document.getElementById("relatedList").innerHTML = "";
-}
-
-function esc(v) { return String(v ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[m])); }
-
-loadGeoJSON().catch(err => {
-  console.error(err);
-  document.getElementById("statusDot").classList.add("err");
-  document.getElementById("statusText").textContent = "Ошибка загрузки GeoJSON";
-});
-</script>
+        function addInspectionNote() {
+            alert('Кликните на объекте или карте, чтобы привязать заметку инспекции.');
+        }
+    </script>
 </body>
 </html>
